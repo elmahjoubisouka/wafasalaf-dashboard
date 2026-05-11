@@ -27,7 +27,7 @@ st.set_page_config(
 GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "")
 DRIVE_CSV_ID   = st.secrets.get("DRIVE_CSV_ID",  "")
 DRIVE_JSON_ID  = st.secrets.get("DRIVE_JSON_ID", "")
-MODEL_NAME     = "gemini-2.0-flash"
+MODEL_NAME     = "gemini-1.5-flash"
 
 st.markdown("""
 <style>
