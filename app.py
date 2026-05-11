@@ -398,10 +398,15 @@ def chart_dei(ctx):
     ))
     fig.add_vline(x=moy, line=dict(color=TEXT2, dash='dash'),
                   annotation_text=f'Moy. {moy}', annotation_font_color=TEXT2)
-    fig.update_layout(**PLOT_L, height=260, showlegend=False,
-                      title=dict(text='Classement DEI Global', font=dict(size=14, color=TEXT)),
-                      xaxis=dict(range=[0,110], gridcolor=GRID),
-                      yaxis=dict(gridcolor='rgba(0,0,0,0)'))
+    fig.update_layout(
+        paper_bgcolor=BG2, plot_bgcolor=BG3,
+        font=dict(family='DM Sans', color=TEXT2, size=12),
+        margin=dict(l=16, r=16, t=40, b=16),
+        height=260, showlegend=False,
+        title=dict(text='Classement DEI Global', font=dict(size=14, color=TEXT)),
+        xaxis=dict(range=[0,110], gridcolor=GRID, zeroline=False),
+        yaxis=dict(gridcolor=GRID, zeroline=False),
+    )
     return fig
 
 def chart_radar(ctx):
