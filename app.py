@@ -8,7 +8,7 @@ import numpy as np
 import plotly.graph_objects as go
 import json, warnings, datetime, io, os
 import requests
-import google.generativeai as genai_legacy
+from groq import Groq
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.colors import HexColor, white
@@ -24,10 +24,10 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "")
-DRIVE_CSV_ID   = st.secrets.get("DRIVE_CSV_ID",  "")
-DRIVE_JSON_ID  = st.secrets.get("DRIVE_JSON_ID", "")
-MODEL_NAME     = "gemini-2.0-flash-lite"
+GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
+DRIVE_CSV_ID  = st.secrets.get("DRIVE_CSV_ID",  "")
+DRIVE_JSON_ID = st.secrets.get("DRIVE_JSON_ID", "")
+MODEL_NAME    = "llama-3.3-70b-versatile"
 
 st.markdown("""
 <style>
@@ -134,34 +134,38 @@ def need_data():
 
 def need_api():
     if not st.session_state.client:
-        st.warning("Cle API Gemini non configuree. Allez dans Configuration.")
+        st.warning("Cle API Groq non configuree. Allez dans Configuration.")
         st.stop()
 
 def is_empty(val):
     if pd.isna(val): return True
     return str(val).strip() in ['', '—', '--', 'nan']
 
-def init_gemini():
-    if GEMINI_API_KEY and st.session_state.client is None:
+def init_groq():
+    if GROQ_API_KEY and st.session_state.client is None:
         try:
-            genai_legacy.configure(api_key=GEMINI_API_KEY)
-            st.session_state.client = True
+            client = Groq(api_key=GROQ_API_KEY)
+            # Test rapide pour valider la clé
+            st.session_state.client = client
         except Exception:
             pass
 
-init_gemini()
+init_groq()
 
 def llm_generate(prompt: str) -> str:
     if not st.session_state.client:
-        st.error("Clé API non configurée.")
+        st.error("Clé API Groq non configurée. Allez dans Configuration.")
         return ''
     try:
-        genai_legacy.configure(api_key=GEMINI_API_KEY)
-        model = genai_legacy.GenerativeModel(MODEL_NAME)
-        r = model.generate_content(prompt)
-        return r.text
+        response = st.session_state.client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=1500,
+            temperature=0.7,
+        )
+        return response.choices[0].message.content
     except Exception as e:
-        st.error(f"Erreur API : {e}")
+        st.error(f"Erreur API Groq : {e}")
         return ''
 
 def construire_contexte_rag(df, ctx, marque_focus='Wafasalaf',
@@ -198,16 +202,31 @@ def construire_contexte_rag(df, ctx, marque_focus='Wafasalaf',
     return c
 
 def chat_llm(question, date_debut=None, date_fin=None):
+    if not st.session_state.client:
+        st.error("Cle API Groq non configuree.")
+        return ''
     df  = st.session_state.df
     ctx = st.session_state.context_json
     rag = construire_contexte_rag(df, ctx, date_debut=date_debut, date_fin=date_fin)
-    sys = ('Tu es assistant strategique marketing Wafasalaf au Maroc.\n'
-           'Reponses precises, chiffrees, francais professionnel.\n\nDONNEES :\n' + rag[:5000])
-    prompt = sys + '\n\n'
+    system_msg = ('Tu es assistant strategique marketing Wafasalaf au Maroc. '
+                  'Reponds en francais professionnel avec des chiffres precis. '
+                  "Tu comprends et analyses aussi le Darija et l'arabe marocain.\n\nDONNEES :\n" + rag[:5000])
+    messages = [{"role": "system", "content": system_msg}]
     for t in st.session_state.historique_chat[-6:]:
-        prompt += f"USER: {t['question']}\nASSISTANT: {t['reponse']}\n\n"
-    prompt += f"USER: {question}\nASSISTANT:"
-    rep = llm_generate(prompt)
+        messages.append({"role": "user",      "content": t['question']})
+        messages.append({"role": "assistant", "content": t['reponse']})
+    messages.append({"role": "user", "content": question})
+    try:
+        response = st.session_state.client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=messages,
+            max_tokens=1500,
+            temperature=0.7,
+        )
+        rep = response.choices[0].message.content
+    except Exception as e:
+        st.error(f"Erreur API Groq : {e}")
+        return ''
     st.session_state.historique_chat.append({
         'question': question, 'reponse': rep,
         'timestamp': datetime.datetime.now().isoformat()
@@ -498,7 +517,7 @@ with st.sidebar:
         st.rerun()
 
     if st.session_state.client:
-        st.markdown('<div class="status-ok" style="margin-top:6px;">✓ Gemini connecte</div>', unsafe_allow_html=True)
+        st.markdown('<div class="status-ok" style="margin-top:6px;">✓ Groq / Llama-3 connecte</div>', unsafe_allow_html=True)
 
     st.divider()
     st.markdown("<div style='font-size:10px;color:#5a5e75;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;'>DEI /100</div>", unsafe_allow_html=True)
@@ -511,7 +530,7 @@ with st.sidebar:
 # ── CONFIGURATION ─────────────────────────────────────────────────
 if page == "📊 Dashboard":
     st.markdown('<div class="section-title">Configuration</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">Parametres Drive, API Gemini et upload manuel.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">Parametres Drive, API Groq (Llama-3) et upload manuel.</div>', unsafe_allow_html=True)
 
     with st.container(border=True):
         st.markdown("**Google Drive — IDs des fichiers**")
@@ -540,16 +559,24 @@ if page == "📊 Dashboard":
         st.info("Lien Drive → copier la partie apres /d/ et avant /view")
 
     with st.container(border=True):
-        st.markdown("**Cle API Gemini**")
-        api_input = st.text_input("Cle API Gemini", value=GEMINI_API_KEY,
-                                   type="password", label_visibility="collapsed")
-        if st.button("Connecter Gemini", type="primary", width='stretch'):
+        st.markdown("**Cle API Groq (Llama 3.3)**")
+        st.caption("Cle gratuite sur console.groq.com → API Keys")
+        api_input = st.text_input("Cle API Groq", value=GROQ_API_KEY,
+                                   type="password", label_visibility="collapsed",
+                                   placeholder="gsk_...")
+        if st.button("Connecter Groq", type="primary", width='stretch'):
             try:
-                genai_legacy.configure(api_key=api_input)
-                st.session_state.client = True
-                st.success("Gemini connecte !")
+                test_client = Groq(api_key=api_input)
+                # Test de connexion rapide
+                test_client.chat.completions.create(
+                    model=MODEL_NAME,
+                    messages=[{"role":"user","content":"test"}],
+                    max_tokens=5
+                )
+                st.session_state.client = test_client
+                st.success("✓ Groq / Llama-3 connecte !")
             except Exception as e:
-                st.error(f"Erreur : {e}")
+                st.error(f"Erreur Groq : {e}")
 
     with st.expander("Upload manuel (si Drive non configure)"):
         col1, col2 = st.columns(2)
