@@ -8,7 +8,7 @@ import numpy as np
 import plotly.graph_objects as go
 import json, warnings, datetime, io, os
 import requests
-from google import genai
+import google.generativeai as genai_legacy
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.colors import HexColor, white
@@ -17,9 +17,6 @@ from reportlab.lib.units import cm
 
 warnings.filterwarnings("ignore")
 
-# ══════════════════════════════════════════════════════════════════
-# CONFIG PAGE
-# ══════════════════════════════════════════════════════════════════
 st.set_page_config(
     page_title="Wafasalaf · Veille IA",
     page_icon="📊",
@@ -27,17 +24,11 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ══════════════════════════════════════════════════════════════════
-# SECRETS (Streamlit Cloud) ou valeurs par défaut
-# ══════════════════════════════════════════════════════════════════
-GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "AIzaSyDJn6vsh3ce3nqOWVmiT53r903pX2DhYJs")
+GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "")
 DRIVE_CSV_ID   = st.secrets.get("DRIVE_CSV_ID",  "")
 DRIVE_JSON_ID  = st.secrets.get("DRIVE_JSON_ID", "")
-MODEL_NAME     = "gemini-2.5-flash"
+MODEL_NAME     = "gemini-2.0-flash"
 
-# ══════════════════════════════════════════════════════════════════
-# CSS
-# ══════════════════════════════════════════════════════════════════
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap');
@@ -64,9 +55,6 @@ html,body,[class*="css"]{font-family:'DM Sans',sans-serif !important;}
 </style>
 """, unsafe_allow_html=True)
 
-# ══════════════════════════════════════════════════════════════════
-# CONSTANTES
-# ══════════════════════════════════════════════════════════════════
 MARQUES = ['Wafasalaf', 'Salafin', 'Eqdom', 'Sofac']
 COLORS  = {'Wafasalaf':'#4F8EF7','Salafin':'#4FC18A','Eqdom':'#F7C44F','Sofac':'#F76B4F'}
 BG2='#11141f'; BG3='#181c2b'; GRID='rgba(255,255,255,0.05)'; TEXT='#e8eaf2'; TEXT2='#8b8fa8'
@@ -78,9 +66,6 @@ PLOT_L = dict(
     yaxis=dict(gridcolor=GRID, zeroline=False),
 )
 
-# ══════════════════════════════════════════════════════════════════
-# SESSION STATE
-# ══════════════════════════════════════════════════════════════════
 for k, v in [
     ('client', None), ('df', None), ('context_json', None),
     ('historique_chat', []), ('last_rapport', ''),
@@ -89,11 +74,7 @@ for k, v in [
     if k not in st.session_state:
         st.session_state[k] = v
 
-# ══════════════════════════════════════════════════════════════════
-# CHARGEMENT GOOGLE DRIVE (automatique)
-# ══════════════════════════════════════════════════════════════════
 def download_from_drive(file_id: str, suffix: str) -> str:
-    """Télécharge un fichier Drive public via gdown, retourne le chemin local."""
     import gdown
     out = f"/tmp/wafa_{file_id[:8]}{suffix}"
     url = f"https://drive.google.com/uc?id={file_id}"
@@ -102,14 +83,9 @@ def download_from_drive(file_id: str, suffix: str) -> str:
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def load_from_drive(csv_id: str, json_id: str):
-    """
-    Télécharge CSV + JSON depuis Google Drive.
-    Cache 1 heure — se rafraîchit automatiquement.
-    """
     try:
         csv_path  = download_from_drive(csv_id,  ".csv")
         json_path = download_from_drive(json_id, ".json")
-
         df_raw = pd.read_csv(csv_path, low_memory=False)
         df_raw['post_date'] = pd.to_datetime(df_raw['post_date'], utc=True, errors='coerce')
         df_raw['post_date'] = df_raw['post_date'].dt.tz_localize(None)
@@ -128,28 +104,18 @@ def load_from_drive(csv_id: str, json_id: str):
         )
         with open(json_path, encoding='utf-8') as f:
             ctx = json.load(f)
-
         return df_raw, ctx, None
-
     except Exception as e:
         return None, None, str(e)
 
-
 def auto_load():
-    """
-    Tente le chargement automatique depuis Drive au démarrage.
-    Appelé une fois par session.
-    """
     if st.session_state.df is not None:
-        return  # déjà chargé
-
+        return
     if not DRIVE_CSV_ID or not DRIVE_JSON_ID:
         st.session_state.load_status = "no_ids"
         return
-
-    with st.spinner("Chargement automatique des données depuis Google Drive..."):
+    with st.spinner("Chargement automatique depuis Google Drive..."):
         df, ctx, err = load_from_drive(DRIVE_CSV_ID, DRIVE_JSON_ID)
-
     if err:
         st.session_state.load_status = f"error:{err}"
     else:
@@ -158,41 +124,48 @@ def auto_load():
         st.session_state.last_load    = datetime.datetime.now()
         st.session_state.load_status  = "ok"
 
-# Chargement au démarrage
 auto_load()
 
-# ══════════════════════════════════════════════════════════════════
-# HELPERS
-# ══════════════════════════════════════════════════════════════════
+def is_empty(val):
+    if pd.isna(val): return True
+    return str(val).strip() in ['', '—', '--', 'nan']
+
 def init_gemini():
-    if GEMINI_API_KEY:
+    if GEMINI_API_KEY and st.session_state.client is None:
         try:
-            import google.generativeai as genai_legacy
             genai_legacy.configure(api_key=GEMINI_API_KEY)
-            st.session_state.client = True  # flag connecté
+            st.session_state.client = True
         except Exception:
             pass
 
 init_gemini()
 
-# ══════════════════════════════════════════════════════════════════
-# FONCTIONS COLAB (ton code exact, adapté Streamlit)
-# ══════════════════════════════════════════════════════════════════
+def llm_generate(prompt: str) -> str:
+    if not st.session_state.client:
+        st.error("Clé API non configurée.")
+        return ''
+    try:
+        genai_legacy.configure(api_key=GEMINI_API_KEY)
+        model = genai_legacy.GenerativeModel(MODEL_NAME)
+        r = model.generate_content(prompt)
+        return r.text
+    except Exception as e:
+        st.error(f"Erreur API : {e}")
+        return ''
+
 def construire_contexte_rag(df, ctx, marque_focus='Wafasalaf',
                              date_debut=None, date_fin=None, max_posts=25):
     concurrents = [m for m in MARQUES if m != marque_focus]
     dff = df[df['marque'].isin([marque_focus] + concurrents)].copy()
     if date_debut: dff = dff[dff['date_debut'] >= pd.to_datetime(date_debut)]
     if date_fin:   dff = dff[dff['date_debut'] <= pd.to_datetime(date_fin)]
-
     dei = ctx.get('classement_DEI', {})
-    c  = f"BENCHMARK DEI - CREDIT CONSOMMATION MAROC\n"
+    c  = "BENCHMARK DEI - CREDIT CONSOMMATION MAROC\n"
     c += f"Periode : {ctx['metadata']['periode_analyse']}\n"
     c += f"Focus : {marque_focus}\n\nCLASSEMENT DEI (/100) :\n"
     for m, sc in sorted(dei.get('classement', {}).items(), key=lambda x: -x[1]):
         c += f"  {m} : {sc}/100{'  <- FOCUS' if m == marque_focus else ''}\n"
     c += f"  Moyenne : {dei.get('moyenne_marche')}\n\n"
-
     for marque in [marque_focus] + concurrents:
         info = ctx.get('analyse_par_marque', {}).get(marque, {})
         if not info: continue
@@ -204,40 +177,21 @@ def construire_contexte_rag(df, ctx, marque_focus='Wafasalaf',
         c += f"Eng median : {eng.get('median')} | Commercial : {eng.get('commercial_median')}\n"
         c += f"Langue dominante : {edit.get('langue_dominante')} | Offre top : {edit.get('offre_plus_performante')}\n"
         c += f"Frequence={ind.get('Frequence')} | Diversite={ind.get('Diversite')} | Richesse={ind.get('Richesse')}\n\n"
-
-    bench   = ctx.get('benchmark_engagement', {})
-    el      = bench.get('engagement_par_langue', {}).get('median', {})
+    bench = ctx.get('benchmark_engagement', {})
+    el    = bench.get('engagement_par_langue', {}).get('median', {})
     c += f"LANGUE : Arabe={el.get('Arabe')} | Darija={el.get('Darija')} | Francais={el.get('Français', el.get('Francais'))}\n"
     c += f"Correlation DEI-engagement : r={bench.get('correlation_DEI_engagement')}\n\n"
-
     cols = [col for col in ['marque','date_debut','texte_complet','type_offre','langue','engagement'] if col in dff.columns]
     for _, row in dff[cols].dropna(subset=['texte_complet']).head(max_posts).iterrows():
         c += f"[{row['marque']}|{str(row['date_debut'])[:10]}] {str(row.get('texte_complet',''))[:100]}\n"
     return c
-
-
-def llm_generate(prompt: str) -> str:
-    if not st.session_state.client:
-        st.error("Clé API non configurée.")
-        return ''
-    try:
-        import google.generativeai as genai_legacy
-        genai_legacy.configure(api_key=GEMINI_API_KEY)
-        model = genai_legacy.GenerativeModel('gemini-2.0-flash')
-        r = model.generate_content(prompt)
-        return r.text
-    except Exception as e:
-        st.error(f"Erreur API : {e}")
-        return ''
-
 
 def chat_llm(question, date_debut=None, date_fin=None):
     df  = st.session_state.df
     ctx = st.session_state.context_json
     rag = construire_contexte_rag(df, ctx, date_debut=date_debut, date_fin=date_fin)
     sys = ('Tu es assistant strategique marketing Wafasalaf au Maroc.\n'
-           'Reponses precises, chiffrees, francais professionnel.\n\n'
-           'DONNEES :\n' + rag[:5000])
+           'Reponses precises, chiffrees, francais professionnel.\n\nDONNEES :\n' + rag[:5000])
     prompt = sys + '\n\n'
     for t in st.session_state.historique_chat[-6:]:
         prompt += f"USER: {t['question']}\nASSISTANT: {t['reponse']}\n\n"
@@ -248,7 +202,6 @@ def chat_llm(question, date_debut=None, date_fin=None):
         'timestamp': datetime.datetime.now().isoformat()
     })
     return rep
-
 
 def comparer_periode(date_debut, date_fin, focus='Wafasalaf'):
     df = st.session_state.df
@@ -280,7 +233,6 @@ def comparer_periode(date_debut, date_fin, focus='Wafasalaf'):
               f'3. CONCURRENT LE PLUS MENACANT\n'
               f'4. 3 RECOMMANDATIONS avec delai')
     return stats, llm_generate(prompt), None
-
 
 def predire_prochaines_offres(concurrent, horizon='3 prochains mois', nb=4):
     df  = st.session_state.df
@@ -317,14 +269,13 @@ def predire_prochaines_offres(concurrent, horizon='3 prochains mois', nb=4):
     except Exception as e:
         return {'predictions': [], 'erreur': str(e), 'texte_brut': raw}
 
-
 def generer_rapport_pdf(date_debut=None, date_fin=None):
     df  = st.session_state.df
     ctx = st.session_state.context_json
     rag = construire_contexte_rag(df, ctx, max_posts=15)
     periode = f'{date_debut} -> {date_fin}' if date_debut else ctx['metadata']['periode_analyse']
     prompt = (
-        f'Consultant senior marketing digital Wafasalaf (credit consommation, Maroc).\n\n'
+        'Consultant senior marketing digital Wafasalaf (credit consommation, Maroc).\n\n'
         + rag[:4000] +
         '\n\nRedige un rapport strategique avec ces sections :\n\n'
         'RESUME EXECUTIF\n4 phrases sur la situation concurrentielle.\n\n'
@@ -335,7 +286,6 @@ def generer_rapport_pdf(date_debut=None, date_fin=None):
     )
     contenu = llm_generate(prompt)
     if not contenu: return None, ''
-
     buf   = io.BytesIO()
     BLEU  = HexColor('#0055A5')
     GRIS  = HexColor('#F5F5F5')
@@ -347,11 +297,10 @@ def generer_rapport_pdf(date_debut=None, date_fin=None):
     s_h2  = ParagraphStyle('h2', fontSize=13, textColor=BLEU, fontName='Helvetica-Bold', spaceBefore=12, spaceAfter=4)
     s_bod = ParagraphStyle('bod', fontSize=10, textColor=TEXTE, leading=16, spaceAfter=5)
     s_met = ParagraphStyle('met', fontSize=9,  textColor=TEXTE, fontName='Helvetica-Oblique', spaceAfter=10)
-
     story = [
         Paragraph('Rapport de Veille Publicitaire Digitale', s_h1),
         Paragraph('Wafasalaf — Benchmark Concurrentiel', s_h2),
-        Paragraph(f"Généré le {datetime.datetime.now().strftime('%d/%m/%Y à %H:%M')} — Période : {periode}", s_met),
+        Paragraph(f"Periode : {periode}", s_met),
         Spacer(1, 0.4*cm),
         Paragraph('Classement DEI', s_h2),
     ]
@@ -369,7 +318,7 @@ def generer_rapport_pdf(date_debut=None, date_fin=None):
         ('GRID',       (0,0),(-1,-1), 0.25, HexColor('#CCCCCC')),
         ('TOPPADDING', (0,0),(-1,-1), 5), ('BOTTOMPADDING',(0,0),(-1,-1), 5),
     ]))
-    story += [t, Spacer(1, 0.5*cm), Paragraph('Analyse Stratégique', s_h2)]
+    story += [t, Spacer(1, 0.5*cm), Paragraph('Analyse Strategique', s_h2)]
     TITRES = ['RESUME EXECUTIF','ANALYSE DE LA POSITION CONCURRENTIELLE',
               'OPPORTUNITES IDENTIFIEES','RECOMMANDATIONS STRATEGIQUES','CONCLUSION']
     for line in contenu.split('\n'):
@@ -383,9 +332,7 @@ def generer_rapport_pdf(date_debut=None, date_fin=None):
     doc.build(story)
     return buf.getvalue(), contenu
 
-# ══════════════════════════════════════════════════════════════════
-# GRAPHIQUES
-# ══════════════════════════════════════════════════════════════════
+# ── GRAPHIQUES ────────────────────────────────────────────────────
 def chart_dei(ctx):
     dei  = ctx['classement_DEI']['classement']
     moy  = ctx['classement_DEI']['moyenne_marche']
@@ -409,7 +356,7 @@ def chart_dei(ctx):
     return fig
 
 def chart_radar(ctx):
-    labels = ['Fréquence','Diversité','Mix Langue','Richesse','Régularité']
+    labels = ['Frequence','Diversite','Mix Langue','Richesse','Regularite']
     keys   = ['Frequence','Diversite','Mix_langue','Richesse','Regularite']
     fig    = go.Figure()
     for m in MARQUES:
@@ -427,7 +374,7 @@ def chart_radar(ctx):
                    angularaxis=dict(gridcolor=GRID, tickfont=dict(size=10, color=TEXT2))),
         font=dict(family='DM Sans', color=TEXT2),
         margin=dict(l=40,r=40,t=50,b=30), height=360,
-        title=dict(text='Profil DEI — 5 Indicateurs', font=dict(size=14, color=TEXT)),
+        title=dict(text='Profil DEI - 5 Indicateurs', font=dict(size=14, color=TEXT)),
         legend=dict(bgcolor='rgba(0,0,0,0)'),
     )
     return fig
@@ -435,7 +382,7 @@ def chart_radar(ctx):
 def chart_engagement(df):
     eng = df.groupby('marque')['engagement'].agg(['median','mean']).reindex(MARQUES)
     fig = go.Figure()
-    fig.add_trace(go.Bar(name='Médiane', x=MARQUES, y=eng['median'],
+    fig.add_trace(go.Bar(name='Mediane', x=MARQUES, y=eng['median'],
                          marker_color=[COLORS[m] for m in MARQUES],
                          text=eng['median'].round(0).astype(int), textposition='outside'))
     fig.add_trace(go.Bar(name='Moyenne', x=MARQUES, y=eng['mean'],
@@ -456,7 +403,7 @@ def chart_langue(df):
         textposition='outside',
     ))
     fig.update_layout(**PLOT_L, height=280, showlegend=False,
-                      title=dict(text='Engagement Médian par Langue', font=dict(size=14, color=TEXT)))
+                      title=dict(text='Engagement par Langue', font=dict(size=14, color=TEXT)))
     return fig
 
 def chart_com_noncom(df):
@@ -498,12 +445,10 @@ def chart_timeline(df):
                                   line=dict(color=COLORS[m], width=2),
                                   mode='lines+markers', marker=dict(size=5)))
     fig.update_layout(**PLOT_L, height=270, xaxis_tickangle=-35,
-                      title=dict(text='Activité Mensuelle — Posts publiés', font=dict(size=14, color=TEXT)))
+                      title=dict(text='Activite Mensuelle', font=dict(size=14, color=TEXT)))
     return fig
 
-# ══════════════════════════════════════════════════════════════════
-# SIDEBAR
-# ══════════════════════════════════════════════════════════════════
+# ── SIDEBAR ───────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("""
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
@@ -518,34 +463,31 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    page = st.radio("", [
+    page = st.radio("Navigation", [
         "📊 Dashboard", "💬 Chat LLM", "📅 Comparaison",
-        "🔮 Prédiction", "📄 Rapport PDF", "⚙️ Configuration",
+        "🔮 Prediction", "📄 Rapport PDF", "⚙️ Configuration",
     ], label_visibility='collapsed')
 
     st.divider()
-
-    # Statuts
     if st.session_state.df is not None:
-        n    = len(st.session_state.df)
-        ts   = st.session_state.last_load
-        label = ts.strftime("Données du %d/%m à %H:%M") if ts else "Données chargées"
-        st.markdown(f'<div class="status-ok">✓ {n} posts — {label}</div>', unsafe_allow_html=True)
+        n  = len(st.session_state.df)
+        ts = st.session_state.last_load
+        lb = ts.strftime("Donnees du %d/%m a %H:%M") if ts else "Donnees chargees"
+        st.markdown(f'<div class="status-ok">✓ {n} posts — {lb}</div>', unsafe_allow_html=True)
     elif st.session_state.load_status == "no_ids":
-        st.markdown('<div class="status-err">IDs Drive non configurés</div>', unsafe_allow_html=True)
+        st.markdown('<div class="status-err">IDs Drive non configures</div>', unsafe_allow_html=True)
     elif str(st.session_state.load_status).startswith("error"):
         st.markdown('<div class="status-err">Erreur chargement Drive</div>', unsafe_allow_html=True)
 
-    # Bouton rafraîchissement
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-    if st.button("🔄 Rafraîchir les données", use_container_width=True):
+    if st.button("Rafraichir les donnees", use_container_width=True):
         load_from_drive.clear()
         st.session_state.df           = None
         st.session_state.context_json = None
         st.rerun()
 
     if st.session_state.client:
-        st.markdown('<div class="status-ok" style="margin-top:6px;">✓ Gemini connecté</div>', unsafe_allow_html=True)
+        st.markdown('<div class="status-ok" style="margin-top:6px;">✓ Gemini connecte</div>', unsafe_allow_html=True)
 
     st.divider()
     st.markdown("<div style='font-size:10px;color:#5a5e75;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;'>DEI /100</div>", unsafe_allow_html=True)
@@ -555,42 +497,31 @@ with st.sidebar:
         c1.progress(int(sc))
         c2.markdown(f"<span style='font-family:DM Mono,monospace;font-size:11px;color:{COLORS[m]};'>{sc}</span>", unsafe_allow_html=True)
 
-# ══════════════════════════════════════════════════════════════════
-# GUARD : données requises
-# ══════════════════════════════════════════════════════════════════
 def need_data():
-    """Affiche un message si les données ne sont pas chargées."""
     if st.session_state.df is None:
-        st.info("👈 Les données se chargent automatiquement depuis Google Drive.\n\n"
-                "Si rien ne s'affiche, allez dans **⚙️ Configuration** pour configurer les IDs Drive "
-                "ou uploader vos fichiers manuellement.")
+        st.info("Les donnees se chargent automatiquement depuis Google Drive.\n\n"
+                "Si rien ne s'affiche, allez dans Configuration.")
         st.stop()
 
 def need_api():
-    """Affiche un message si l'API n'est pas connectée."""
     if not st.session_state.client:
-        st.warning("⚠️ Clé API Gemini non configurée. Allez dans **⚙️ Configuration**.")
+        st.warning("Cle API Gemini non configuree. Allez dans Configuration.")
         st.stop()
 
-# ══════════════════════════════════════════════════════════════════
-# PAGE : CONFIGURATION
-# ══════════════════════════════════════════════════════════════════
+# ── CONFIGURATION ─────────────────────────────────────────────────
 if page == "⚙️ Configuration":
-    st.markdown('<div class="section-title">⚙️ Configuration</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">Paramètres Drive, API Gemini et upload manuel de secours.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Configuration</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">Parametres Drive, API Gemini et upload manuel.</div>', unsafe_allow_html=True)
 
-    # ── IDs Google Drive ──────────────────────────────────────────
     with st.container(border=True):
-        st.markdown("**🔗 Google Drive — IDs des fichiers**")
-        st.caption("Obtiens les IDs depuis les liens de partage de tes fichiers Drive publics.")
-
+        st.markdown("**Google Drive — IDs des fichiers**")
+        st.caption("Entre uniquement l'ID (pas le lien complet).")
         col1, col2 = st.columns(2)
         csv_id_input  = col1.text_input("ID du fichier CSV",  value=DRIVE_CSV_ID,
                                          placeholder="1aBcDeFgHiJkLmNoPqRsTuVwX")
         json_id_input = col2.text_input("ID du fichier JSON", value=DRIVE_JSON_ID,
                                          placeholder="1zYxWvUTsRqPoNmLkJiHgFeDcBa")
-
-        if st.button("💾 Sauvegarder et charger", type="primary", use_container_width=True):
+        if st.button("Sauvegarder et charger", type="primary", use_container_width=True):
             if csv_id_input and json_id_input:
                 load_from_drive.clear()
                 with st.spinner("Chargement depuis Drive..."):
@@ -602,33 +533,29 @@ if page == "⚙️ Configuration":
                     st.session_state.context_json = ctx
                     st.session_state.last_load    = datetime.datetime.now()
                     st.session_state.load_status  = "ok"
-                    st.success(f"✅ {len(df)} posts chargés depuis Drive !")
+                    st.success(f"OK — {len(df)} posts charges depuis Drive !")
                     st.rerun()
             else:
                 st.warning("Entre les deux IDs.")
+        st.info("Lien Drive → copier la partie apres /d/ et avant /view")
 
-        st.info("**Comment trouver l'ID ?**  \n"
-                "Dans Google Drive : clic droit sur le fichier → Partager → Copier le lien  \n"
-                "Le lien ressemble à : `https://drive.google.com/file/d/`**`CECI_EST_L_ID`**`/view`")
-
-    # ── API Gemini ────────────────────────────────────────────────
     with st.container(border=True):
-        st.markdown("**🔑 Clé API Gemini**")
-        api_input = st.text_input("", value=GEMINI_API_KEY, type="password",
-                                   label_visibility="collapsed")
-        if st.button("✅ Connecter Gemini", type="primary", use_container_width=True):
+        st.markdown("**Cle API Gemini**")
+        api_input = st.text_input("Cle API Gemini", value=GEMINI_API_KEY,
+                                   type="password", label_visibility="collapsed")
+        if st.button("Connecter Gemini", type="primary", use_container_width=True):
             try:
-                st.session_state.client = genai.Client(api_key=api_input)
-                st.success("✅ Gemini connecté !")
+                genai_legacy.configure(api_key=api_input)
+                st.session_state.client = True
+                st.success("Gemini connecte !")
             except Exception as e:
                 st.error(f"Erreur : {e}")
 
-    # ── Upload manuel (secours) ───────────────────────────────────
-    with st.expander("📂 Upload manuel (si Drive non configuré)"):
+    with st.expander("Upload manuel (si Drive non configure)"):
         col1, col2 = st.columns(2)
         csv_file  = col1.file_uploader("social_posts_enrichi.csv", type=["csv"])
         json_file = col2.file_uploader("llm_context.json", type=["json"])
-        if st.button("📥 Charger les fichiers uploadés", use_container_width=True):
+        if st.button("Charger les fichiers uploades", use_container_width=True):
             if csv_file and json_file:
                 df_raw = pd.read_csv(csv_file, low_memory=False)
                 df_raw['post_date'] = pd.to_datetime(df_raw['post_date'], utc=True, errors='coerce')
@@ -649,143 +576,127 @@ if page == "⚙️ Configuration":
                 st.session_state.df           = df_raw
                 st.session_state.context_json = json.load(json_file)
                 st.session_state.last_load    = datetime.datetime.now()
-                st.success(f"✅ {len(df_raw)} posts chargés !")
+                st.success(f"OK — {len(df_raw)} posts charges !")
                 st.rerun()
             else:
                 st.warning("Uploade les deux fichiers.")
 
-# ══════════════════════════════════════════════════════════════════
-# PAGE : DASHBOARD
-# ══════════════════════════════════════════════════════════════════
+# ── DASHBOARD ─────────────────────────────────────────────────────
 elif page == "📊 Dashboard":
     need_data()
     df  = st.session_state.df
     ctx = st.session_state.context_json
-    st.markdown('<div class="section-title">📊 Dashboard — Benchmark DEI</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Dashboard — Benchmark DEI</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-sub">Vue comparative · 4 marques · 800 posts · Jan 2025 → Mar 2026</div>', unsafe_allow_html=True)
-
     k1,k2,k3,k4,k5 = st.columns(5)
-    k1.metric("Posts analysés",  "800",       "4 marques")
-    k2.metric("Leader DEI",      "Salafin",   "71.2/100 🏆")
-    k3.metric("Wafasalaf DEI",   "60.2/100",  "+9.4 vs moy.")
-    k4.metric("Corr. DEI↔Eng",  "r = 0.66",  "modérée")
-    k5.metric("Langue top",      "Arabe/Darija","×26 vs FR")
+    k1.metric("Posts analyses",  "800",        "4 marques")
+    k2.metric("Leader DEI",      "Salafin",    "71.2/100")
+    k3.metric("Wafasalaf DEI",   "60.2/100",   "+9.4 vs moy.")
+    k4.metric("Corr. DEI-Eng",   "r = 0.66",   "moderee")
+    k5.metric("Langue top",      "Arabe/Darija","x26 vs FR")
     st.divider()
-
     c1,c2 = st.columns(2)
-    c1.plotly_chart(chart_dei(ctx),     use_container_width=True)
-    c2.plotly_chart(chart_radar(ctx),   use_container_width=True)
+    c1.plotly_chart(chart_dei(ctx),        use_container_width=True)
+    c2.plotly_chart(chart_radar(ctx),      use_container_width=True)
     c1,c2 = st.columns(2)
     c1.plotly_chart(chart_engagement(df),  use_container_width=True)
     c2.plotly_chart(chart_langue(df),      use_container_width=True)
     c1,c2 = st.columns(2)
     c1.plotly_chart(chart_com_noncom(df),  use_container_width=True)
     c2.plotly_chart(chart_offre(df),       use_container_width=True)
-    st.plotly_chart(chart_timeline(df), use_container_width=True)
-
+    st.plotly_chart(chart_timeline(df),    use_container_width=True)
     st.divider()
-    st.markdown("#### 📋 Tableau récapitulatif")
+    st.markdown("#### Tableau recapitulatif")
     recap = []
     for m in MARQUES:
         info = ctx['analyse_par_marque'].get(m, {})
         ind  = info.get('DEI_indicateurs_normalises', {})
         eng  = info.get('engagement', {})
         recap.append({
-            'Marque':        m,
-            'DEI':           info.get('DEI_score', '-'),
-            'Rang':          f"#{info.get('DEI_rang','-')}",
-            'Fréquence':     ind.get('Frequence', '-'),
-            'Diversité':     ind.get('Diversite', '-'),
-            'Richesse':      ind.get('Richesse', '-'),
-            'Eng. médian':   eng.get('median', '-'),
+            'Marque':      m,
+            'DEI':         info.get('DEI_score', '-'),
+            'Rang':        f"#{info.get('DEI_rang','-')}",
+            'Frequence':   ind.get('Frequence', '-'),
+            'Diversite':   ind.get('Diversite', '-'),
+            'Richesse':    ind.get('Richesse', '-'),
+            'Eng. median': eng.get('median', '-'),
         })
     st.dataframe(pd.DataFrame(recap), use_container_width=True, hide_index=True,
                  column_config={
                      'DEI': st.column_config.ProgressColumn('DEI', min_value=0, max_value=100, format='%.1f'),
                  })
 
-# ══════════════════════════════════════════════════════════════════
-# PAGE : CHAT LLM
-# ══════════════════════════════════════════════════════════════════
+# ── CHAT LLM ──────────────────────────────────────────────────────
 elif page == "💬 Chat LLM":
     need_data(); need_api()
-    st.markdown('<div class="section-title">💬 Chat Stratégique</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">Questions libres — contexte RAG injecté automatiquement.</div>', unsafe_allow_html=True)
-
-    st.markdown("**Questions suggérées :**")
+    st.markdown('<div class="section-title">Chat Strategique</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">Questions libres — contexte RAG injecte automatiquement.</div>', unsafe_allow_html=True)
+    st.markdown("**Questions suggerees :**")
     qs = [
         "Pourquoi Salafin domine le DEI ? Que doit faire Wafasalaf ?",
-        "Quelle langue génère le plus d'engagement et pourquoi ?",
-        "Compare Wafasalaf et Eqdom sur la diversité des offres",
+        "Quelle langue genere le plus d'engagement et pourquoi ?",
+        "Compare Wafasalaf et Eqdom sur la diversite des offres",
         "Quelles sont les 3 faiblesses principales de Wafasalaf ?",
-        "Quelle offre est la plus performante sur le marché ?",
-        "Analyse la corrélation DEI-engagement. Quels enseignements ?",
+        "Quelle offre est la plus performante sur le marche ?",
+        "Analyse la correlation DEI-engagement. Quels enseignements ?",
     ]
     cols = st.columns(3)
     for i, q in enumerate(qs):
-        if cols[i%3].button(q[:44]+'…' if len(q)>44 else q, key=f"q{i}", use_container_width=True):
+        if cols[i%3].button(q[:44]+'...' if len(q)>44 else q, key=f"q{i}", use_container_width=True):
             st.session_state['pending_q'] = q
     st.divider()
-
     for turn in st.session_state.historique_chat:
         ts = turn.get('timestamp','')[:16].replace('T',' ')
         st.markdown(f'<div class="chat-meta">Vous · {ts}</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="chat-user">{turn["question"]}</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="chat-meta">Assistant</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="chat-ai">{turn["reponse"].replace(chr(10),"<br>")}</div>', unsafe_allow_html=True)
-
     with st.form("chat_form", clear_on_submit=True):
-        user_q = st.text_area("", height=80,
-                               placeholder="Posez votre question stratégique…",
-                               label_visibility="collapsed",
+        user_q = st.text_area("Votre question", height=80,
+                               placeholder="Posez votre question strategique...",
+                               label_visibility="visible",
                                value=st.session_state.pop("pending_q", ""))
         c1,c2 = st.columns([5,1])
-        send  = c1.form_submit_button("➤ Envoyer", type="primary", use_container_width=True)
-        clear = c2.form_submit_button("🗑", use_container_width=True)
-
+        send  = c1.form_submit_button("Envoyer", type="primary", use_container_width=True)
+        clear = c2.form_submit_button("Effacer", use_container_width=True)
     if clear:
         st.session_state.historique_chat = []; st.rerun()
     if send and user_q.strip():
-        with st.spinner("Analyse en cours…"):
+        with st.spinner("Analyse en cours..."):
             chat_llm(user_q.strip())
         st.rerun()
-
     if st.session_state.historique_chat:
         hist = "\n\n".join(f"Q: {t['question']}\nR: {t['reponse']}"
                            for t in st.session_state.historique_chat)
-        st.download_button("⬇ Télécharger l'historique", data=hist.encode(),
+        st.download_button("Telecharger l'historique", data=hist.encode(),
                            file_name="chat_wafasalaf.txt", mime="text/plain")
-    st.caption(f"💬 {len(st.session_state.historique_chat)} échange(s)")
+    st.caption(f"{len(st.session_state.historique_chat)} echange(s)")
 
-# ══════════════════════════════════════════════════════════════════
-# PAGE : COMPARAISON
-# ══════════════════════════════════════════════════════════════════
+# ── COMPARAISON ───────────────────────────────────────────────────
 elif page == "📅 Comparaison":
     need_data(); need_api()
-    st.markdown('<div class="section-title">📅 Comparaison par Période</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">Analyse LLM + graphiques filtrés sur une fenêtre temporelle.</div>', unsafe_allow_html=True)
-
+    st.markdown('<div class="section-title">Comparaison par Periode</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">Analyse LLM + graphiques filtres sur une fenetre temporelle.</div>', unsafe_allow_html=True)
     with st.container(border=True):
         c1,c2,c3 = st.columns(3)
-        d_start  = c1.date_input("Date début", value=datetime.date(2025,6,1))
+        d_start  = c1.date_input("Date debut", value=datetime.date(2025,6,1))
         d_end    = c2.date_input("Date fin",   value=datetime.date(2025,12,31))
         focus    = c3.selectbox("Focus", MARQUES)
         pc1,pc2,pc3,pc4 = st.columns(4)
-        if pc1.button("S1 2025",  use_container_width=True): d_start,d_end = datetime.date(2025,1,1), datetime.date(2025,6,30)
-        if pc2.button("S2 2025",  use_container_width=True): d_start,d_end = datetime.date(2025,7,1), datetime.date(2025,12,31)
-        if pc3.button("Q1 2026",  use_container_width=True): d_start,d_end = datetime.date(2026,1,1), datetime.date(2026,3,4)
-        if pc4.button("Complète", use_container_width=True): d_start,d_end = datetime.date(2025,1,31),datetime.date(2026,3,4)
-        run = st.button("🔍 Lancer l'analyse", type="primary", use_container_width=True)
-
+        if pc1.button("S1 2025",  use_container_width=True): d_start,d_end = datetime.date(2025,1,1),  datetime.date(2025,6,30)
+        if pc2.button("S2 2025",  use_container_width=True): d_start,d_end = datetime.date(2025,7,1),  datetime.date(2025,12,31)
+        if pc3.button("Q1 2026",  use_container_width=True): d_start,d_end = datetime.date(2026,1,1),  datetime.date(2026,3,4)
+        if pc4.button("Complete", use_container_width=True): d_start,d_end = datetime.date(2025,1,31), datetime.date(2026,3,4)
+        run = st.button("Lancer l'analyse", type="primary", use_container_width=True)
     if run:
-        with st.spinner("Analyse en cours…"):
+        with st.spinner("Analyse en cours..."):
             stats, analyse, err = comparer_periode(str(d_start), str(d_end), focus=focus)
         if err:
             st.warning(err)
         else:
-            st.markdown(f"**{d_start} → {d_end} | {sum(v['nb_posts'] for v in stats.values())} posts**")
+            st.markdown(f"**{d_start} -> {d_end} | {sum(v['nb_posts'] for v in stats.values())} posts**")
             tbl = pd.DataFrame({m: {'Posts':v['nb_posts'],'Posts/sem':v['posts_semaine'],
-                                    'Eng. médian':v['engagement_median'],'Eng. max':v['engagement_max']}
+                                    'Eng. median':v['engagement_median'],'Eng. max':v['engagement_max']}
                                 for m,v in stats.items()}).T
             st.dataframe(tbl, use_container_width=True)
             df_f = st.session_state.df[
@@ -798,39 +709,35 @@ elif page == "📅 Comparaison":
             with st.container(border=True):
                 st.markdown(f"**Analyse LLM — {focus}**")
                 st.markdown(analyse)
-            st.download_button("⬇ Télécharger l'analyse", data=analyse.encode(),
+            st.download_button("Telecharger l'analyse", data=analyse.encode(),
                                file_name="comparaison.txt", mime="text/plain")
 
-# ══════════════════════════════════════════════════════════════════
-# PAGE : PRÉDICTION
-# ══════════════════════════════════════════════════════════════════
-elif page == "🔮 Prédiction":
+# ── PREDICTION ─────────────────────────────────────────────────────
+elif page == "🔮 Prediction":
     need_data(); need_api()
-    st.markdown('<div class="section-title">🔮 Prédiction des Prochaines Offres</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">Anticipe les campagnes concurrentielles et prépare les contre-mesures.</div>', unsafe_allow_html=True)
-
+    st.markdown('<div class="section-title">Prediction des Prochaines Offres</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">Anticipe les campagnes concurrentielles.</div>', unsafe_allow_html=True)
     with st.container(border=True):
         c1,c2,c3 = st.columns(3)
         conc   = c1.selectbox("Concurrent", ['Salafin','Eqdom','Sofac'])
         horiz  = c2.selectbox("Horizon", ['1 prochain mois','3 prochains mois','6 prochains mois'], index=1)
-        nb_p   = c3.selectbox("Nb prédictions", [3,4,5], index=1)
-        run_p  = st.button("🔮 Prédire", type="primary", use_container_width=True)
-
+        nb_p   = c3.selectbox("Nb predictions", [3,4,5], index=1)
+        run_p  = st.button("Predire", type="primary", use_container_width=True)
     if run_p:
-        with st.spinner(f"Analyse de {conc}…"):
+        with st.spinner(f"Analyse de {conc}..."):
             data = predire_prochaines_offres(conc, horiz, nb_p)
         if not data:
-            st.error("Aucune donnée disponible.")
+            st.error("Aucune donnee disponible.")
         elif data.get('predictions'):
             PCSS = {'Haute':'high','Moyenne':'medium','Faible':'low'}
-            PEM  = {'Haute':'🔴','Moyenne':'🟠','Faible':'🟢'}
-            st.markdown(f"#### Prédictions — **{conc}** · {horiz}")
+            PEM  = {'Haute':'ROUGE','Moyenne':'ORANGE','Faible':'VERT'}
+            st.markdown(f"#### Predictions — **{conc}** · {horiz}")
             for p in data['predictions']:
                 prob = p.get('probabilite','Moyenne')
                 st.markdown(f"""
                 <div class="pred-card {PCSS.get(prob,'medium')}">
                   <div style="font-size:10px;color:#5a5e75;font-family:'DM Mono',monospace;margin-bottom:5px;">
-                    #{p.get('rang')} — {PEM.get(prob,'')} {prob}
+                    #{p.get('rang')} — {PEM.get(prob,'')} — Probabilite : {prob}
                   </div>
                   <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:3px;">
                     {p.get('type_offre')}
@@ -847,54 +754,50 @@ elif page == "🔮 Prédiction":
                   <div style="font-size:12px;color:#8b8fa8;margin-bottom:7px;">{p.get('justification')}</div>
                   <div style="font-size:12px;padding:7px 11px;border-radius:7px;
                               background:rgba(79,142,247,0.08);border:1px solid rgba(79,142,247,0.15);color:#4F8EF7;">
-                    → {p.get('contre_mesure_wafasalaf')}
+                    -> {p.get('contre_mesure_wafasalaf')}
                   </div>
                 </div>""", unsafe_allow_html=True)
             st.divider()
             c1,c2 = st.columns(2)
             with c1:
                 with st.container(border=True):
-                    st.markdown("**⚠️ Risque global**")
+                    st.markdown("**Risque global**")
                     st.write(data.get('risque_global',''))
             with c2:
                 with st.container(border=True):
-                    st.markdown("**💡 Opportunité Wafasalaf**")
+                    st.markdown("**Opportunite Wafasalaf**")
                     st.write(data.get('opportunite_pour_wafasalaf',''))
         elif data.get('erreur'):
             st.error(f"Erreur JSON : {data['erreur']}")
-            with st.expander("Réponse brute"): st.text(data.get('texte_brut',''))
+            with st.expander("Reponse brute"): st.text(data.get('texte_brut',''))
 
-# ══════════════════════════════════════════════════════════════════
-# PAGE : RAPPORT PDF
-# ══════════════════════════════════════════════════════════════════
+# ── RAPPORT PDF ───────────────────────────────────────────────────
 elif page == "📄 Rapport PDF":
     need_data(); need_api()
-    st.markdown('<div class="section-title">📄 Rapport Stratégique PDF</div>', unsafe_allow_html=True)
-    st.markdown('<div class="section-sub">Rapport complet généré par IA — exportable en PDF, TXT et HTML.</div>', unsafe_allow_html=True)
-
+    st.markdown('<div class="section-title">Rapport Strategique PDF</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">Rapport complet genere par IA — exportable en PDF, TXT et HTML.</div>', unsafe_allow_html=True)
     with st.container(border=True):
         c1,c2 = st.columns(2)
-        r_start = c1.date_input("Début", value=datetime.date(2025,1,1))
+        r_start = c1.date_input("Debut", value=datetime.date(2025,1,1))
         r_end   = c2.date_input("Fin",   value=datetime.date(2026,3,4))
-        gen_btn = st.button("✨ Générer le rapport", type="primary", use_container_width=True)
-
+        gen_btn = st.button("Generer le rapport", type="primary", use_container_width=True)
     if gen_btn:
-        with st.spinner("Génération en cours (30–60 sec)…"):
+        with st.spinner("Generation en cours (30-60 sec)..."):
             pdf_bytes, contenu = generer_rapport_pdf(str(r_start), str(r_end))
         if pdf_bytes:
             st.session_state.last_rapport = contenu
-            st.success("✅ Rapport généré !")
+            st.success("Rapport genere !")
             with st.container(border=True):
-                st.markdown("**Aperçu**")
+                st.markdown("**Apercu**")
                 st.markdown(contenu)
             st.divider()
             ts   = datetime.date.today().strftime('%Y%m%d')
             name = f"rapport_wafasalaf_{ts}"
             c1,c2,c3 = st.columns(3)
-            c1.download_button("⬇ PDF",  data=pdf_bytes,
+            c1.download_button("Telecharger PDF",  data=pdf_bytes,
                                file_name=f"{name}.pdf", mime="application/pdf",
                                use_container_width=True, type="primary")
-            c2.download_button("⬇ TXT",  data=contenu.encode(),
+            c2.download_button("Telecharger TXT",  data=contenu.encode(),
                                file_name=f"{name}.txt", mime="text/plain",
                                use_container_width=True)
             html_out = (f"<!DOCTYPE html><html lang='fr'><head><meta charset='UTF-8'>"
@@ -905,11 +808,11 @@ elif page == "📄 Rapport PDF":
                         f"padding-bottom:10px;}}h2{{color:#0055A5;font-size:16px;margin-top:28px;}}"
                         f"</style></head><body>"
                         f"<h1>Rapport Wafasalaf</h1>"
-                        f"<p style='color:#888'>{r_start} → {r_end}</p>"
+                        f"<p style='color:#888'>{r_start} -> {r_end}</p>"
                         f"{'<br>'.join(contenu.split(chr(10)))}</body></html>")
-            c3.download_button("⬇ HTML", data=html_out.encode(),
+            c3.download_button("Telecharger HTML", data=html_out.encode(),
                                file_name=f"{name}.html", mime="text/html",
                                use_container_width=True)
     elif st.session_state.last_rapport:
-        with st.expander("Dernier rapport généré"):
+        with st.expander("Dernier rapport genere"):
             st.markdown(st.session_state.last_rapport)
