@@ -528,7 +528,7 @@ with st.sidebar:
         c2.markdown(f"<span style='font-family:DM Mono,monospace;font-size:11px;color:{COLORS[m]};'>{sc}</span>", unsafe_allow_html=True)
 
 # ── CONFIGURATION ─────────────────────────────────────────────────
-if page == "📊 Dashboard":
+if page == "⚙️ Configuration":
     st.markdown('<div class="section-title">Configuration</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-sub">Parametres Drive, API Groq (Llama-3) et upload manuel.</div>', unsafe_allow_html=True)
 
@@ -609,7 +609,7 @@ if page == "📊 Dashboard":
                 st.warning("Uploade les deux fichiers.")
 
 # ── DASHBOARD ─────────────────────────────────────────────────────
-elif page == "⚙️ Configuration":
+elif page == "📊 Dashboard":
     need_data()
     df  = st.session_state.df
     ctx = st.session_state.context_json
