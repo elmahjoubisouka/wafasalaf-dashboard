@@ -164,15 +164,12 @@ auto_load()
 # ══════════════════════════════════════════════════════════════════
 # HELPERS
 # ══════════════════════════════════════════════════════════════════
-def is_empty(val):
-    if pd.isna(val): return True
-    return str(val).strip() in ['', '—', '--', 'nan']
-
 def init_gemini():
-    """Initialise le client Gemini depuis la clé API."""
-    if st.session_state.client is None and GEMINI_API_KEY:
+    if GEMINI_API_KEY:
         try:
-            st.session_state.client = genai.Client(api_key=GEMINI_API_KEY)
+            import google.generativeai as genai_legacy
+            genai_legacy.configure(api_key=GEMINI_API_KEY)
+            st.session_state.client = True  # flag connecté
         except Exception:
             pass
 
@@ -224,8 +221,10 @@ def llm_generate(prompt: str) -> str:
         st.error("Clé API non configurée.")
         return ''
     try:
-        r = st.session_state.client.models.generate_content(
-            model=MODEL_NAME, contents=prompt)
+        import google.generativeai as genai_legacy
+        genai_legacy.configure(api_key=GEMINI_API_KEY)
+        model = genai_legacy.GenerativeModel('gemini-2.0-flash')
+        r = model.generate_content(prompt)
         return r.text
     except Exception as e:
         st.error(f"Erreur API : {e}")
