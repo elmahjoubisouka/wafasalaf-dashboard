@@ -126,6 +126,17 @@ def auto_load():
 
 auto_load()
 
+def need_data():
+    if st.session_state.df is None:
+        st.info("Les donnees se chargent automatiquement depuis Google Drive.\n\n"
+                "Si rien ne s'affiche, allez dans Configuration.")
+        st.stop()
+
+def need_api():
+    if not st.session_state.client:
+        st.warning("Cle API Gemini non configuree. Allez dans Configuration.")
+        st.stop()
+
 def is_empty(val):
     if pd.isna(val): return True
     return str(val).strip() in ['', '—', '--', 'nan']
@@ -497,19 +508,8 @@ with st.sidebar:
         c1.progress(int(sc))
         c2.markdown(f"<span style='font-family:DM Mono,monospace;font-size:11px;color:{COLORS[m]};'>{sc}</span>", unsafe_allow_html=True)
 
-def need_data():
-    if st.session_state.df is None:
-        st.info("Les donnees se chargent automatiquement depuis Google Drive.\n\n"
-                "Si rien ne s'affiche, allez dans Configuration.")
-        st.stop()
-
-def need_api():
-    if not st.session_state.client:
-        st.warning("Cle API Gemini non configuree. Allez dans Configuration.")
-        st.stop()
-
 # ── CONFIGURATION ─────────────────────────────────────────────────
-if page == "⚙️ Configuration":
+if page == "📊 Dashboard":
     st.markdown('<div class="section-title">Configuration</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-sub">Parametres Drive, API Gemini et upload manuel.</div>', unsafe_allow_html=True)
 
@@ -582,7 +582,7 @@ if page == "⚙️ Configuration":
                 st.warning("Uploade les deux fichiers.")
 
 # ── DASHBOARD ─────────────────────────────────────────────────────
-elif page == "📊 Dashboard":
+elif page == "⚙️ Configuration":
     need_data()
     df  = st.session_state.df
     ctx = st.session_state.context_json
@@ -677,16 +677,29 @@ elif page == "📅 Comparaison":
     need_data(); need_api()
     st.markdown('<div class="section-title">Comparaison par Periode</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-sub">Analyse LLM + graphiques filtres sur une fenetre temporelle.</div>', unsafe_allow_html=True)
+    # Init session state for dates
+    if 'cmp_start' not in st.session_state: st.session_state.cmp_start = datetime.date(2025,6,1)
+    if 'cmp_end'   not in st.session_state: st.session_state.cmp_end   = datetime.date(2025,12,31)
     with st.container(border=True):
-        c1,c2,c3 = st.columns(3)
-        d_start  = c1.date_input("Date debut", value=datetime.date(2025,6,1))
-        d_end    = c2.date_input("Date fin",   value=datetime.date(2025,12,31))
-        focus    = c3.selectbox("Focus", MARQUES)
         pc1,pc2,pc3,pc4 = st.columns(4)
-        if pc1.button("S1 2025",  width='stretch'): d_start,d_end = datetime.date(2025,1,1),  datetime.date(2025,6,30)
-        if pc2.button("S2 2025",  width='stretch'): d_start,d_end = datetime.date(2025,7,1),  datetime.date(2025,12,31)
-        if pc3.button("Q1 2026",  width='stretch'): d_start,d_end = datetime.date(2026,1,1),  datetime.date(2026,3,4)
-        if pc4.button("Complete", width='stretch'): d_start,d_end = datetime.date(2025,1,31), datetime.date(2026,3,4)
+        if pc1.button("S1 2025",  width='stretch'):
+            st.session_state.cmp_start, st.session_state.cmp_end = datetime.date(2025,1,1),  datetime.date(2025,6,30)
+            st.rerun()
+        if pc2.button("S2 2025",  width='stretch'):
+            st.session_state.cmp_start, st.session_state.cmp_end = datetime.date(2025,7,1),  datetime.date(2025,12,31)
+            st.rerun()
+        if pc3.button("Q1 2026",  width='stretch'):
+            st.session_state.cmp_start, st.session_state.cmp_end = datetime.date(2026,1,1),  datetime.date(2026,3,4)
+            st.rerun()
+        if pc4.button("Complete", width='stretch'):
+            st.session_state.cmp_start, st.session_state.cmp_end = datetime.date(2025,1,31), datetime.date(2026,3,4)
+            st.rerun()
+        c1,c2,c3 = st.columns(3)
+        d_start  = c1.date_input("Date debut", value=st.session_state.cmp_start, key="cmp_d_start")
+        d_end    = c2.date_input("Date fin",   value=st.session_state.cmp_end,   key="cmp_d_end")
+        focus    = c3.selectbox("Focus", MARQUES)
+        if d_start != st.session_state.cmp_start: st.session_state.cmp_start = d_start
+        if d_end   != st.session_state.cmp_end:   st.session_state.cmp_end   = d_end
         run = st.button("Lancer l'analyse", type="primary", width='stretch')
     if run:
         with st.spinner("Analyse en cours..."):
