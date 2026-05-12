@@ -31,46 +31,264 @@ MODEL_NAME    = "llama-3.3-70b-versatile"
 
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap');
-html,body,[class*="css"]{font-family:'DM Sans',sans-serif !important;}
-[data-testid="stSidebar"]{background:#11141f !important;border-right:1px solid rgba(255,255,255,0.07) !important;}
-[data-testid="metric-container"]{background:#11141f;border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:16px 20px;}
-[data-testid="metric-container"] label{font-family:'DM Mono',monospace !important;font-size:10px !important;color:#5a5e75 !important;text-transform:uppercase;letter-spacing:0.08em;}
-[data-testid="metric-container"] [data-testid="stMetricValue"]{font-family:'Syne',sans-serif !important;font-size:24px !important;font-weight:700 !important;}
-[data-testid="stTabs"] [role="tablist"]{background:#11141f;border-radius:12px;padding:4px;border:1px solid rgba(255,255,255,0.07);}
-[data-testid="stTabs"] [role="tab"]{border-radius:8px !important;font-size:13px !important;font-weight:500 !important;padding:8px 16px !important;color:#8b8fa8 !important;}
-[data-testid="stTabs"] [role="tab"][aria-selected="true"]{background:rgba(79,142,247,0.15) !important;color:#4F8EF7 !important;border:1px solid rgba(79,142,247,0.25) !important;}
-.chat-user{background:linear-gradient(135deg,#0055A5,#1e6fd4);color:#fff;border-radius:16px 16px 4px 16px;padding:12px 16px;margin:6px 0 6px 60px;font-size:14px;line-height:1.65;}
-.chat-ai{background:#181c2b;border:1px solid rgba(255,255,255,0.08);color:#e8eaf2;border-radius:4px 16px 16px 16px;padding:12px 16px;margin:6px 60px 6px 0;font-size:14px;line-height:1.7;}
-.chat-meta{font-size:10px;color:#5a5e75;font-family:'DM Mono',monospace;margin-bottom:3px;}
-.pred-card{background:#181c2b;border:1px solid rgba(255,255,255,0.07);border-left:3px solid #4F8EF7;border-radius:12px;padding:16px 18px;margin-bottom:12px;}
-.pred-card.high{border-left-color:#e74c3c;}.pred-card.medium{border-left-color:#f39c12;}.pred-card.low{border-left-color:#2ecc71;}
-.section-title{font-family:'Syne',sans-serif;font-size:20px;font-weight:700;color:#e8eaf2;letter-spacing:-0.02em;margin-bottom:2px;}
-.section-sub{font-size:13px;color:#8b8fa8;margin-bottom:18px;}
-.stButton>button{font-family:'DM Sans',sans-serif !important;font-weight:500 !important;border-radius:10px !important;}
-.stTextInput input,.stTextArea textarea{background:#181c2b !important;border:1px solid rgba(255,255,255,0.1) !important;border-radius:10px !important;color:#e8eaf2 !important;}
-.status-ok{background:rgba(46,204,113,0.1);border:1px solid rgba(46,204,113,0.25);color:#2ecc71;padding:6px 12px;border-radius:8px;font-size:12px;font-family:'DM Mono',monospace;}
-.status-err{background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.25);color:#e74c3c;padding:6px 12px;border-radius:8px;font-size:12px;font-family:'DM Mono',monospace;}
-#MainMenu,footer,header{visibility:hidden;}hr{border-color:rgba(255,255,255,0.07) !important;}
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Open+Sans:wght@300;400;500&display=swap');
+
+/* ── COULEURS WAFASALAF ──
+   Jaune   : #F5C400
+   Teal    : #00B5A0
+   Noir    : #1A1A1A
+   Gris foncé : #2C2C2C
+   Gris moyen : #444444
+   Blanc   : #FFFFFF
+*/
+
+html, body, [class*="css"] {
+    font-family: 'Open Sans', sans-serif !important;
+    background-color: #1A1A1A !important;
+    color: #FFFFFF !important;
+}
+
+/* ── SIDEBAR ── */
+[data-testid="stSidebar"] {
+    background: #111111 !important;
+    border-right: 3px solid #F5C400 !important;
+}
+[data-testid="stSidebar"] * { color: #FFFFFF !important; }
+
+/* ── FOND PRINCIPAL ── */
+.stApp, .main, [data-testid="stAppViewContainer"] {
+    background-color: #1A1A1A !important;
+}
+[data-testid="stMainBlockContainer"] {
+    background-color: #1A1A1A !important;
+}
+
+/* ── MÉTRIQUES ── */
+[data-testid="metric-container"] {
+    background: #2C2C2C;
+    border: 1px solid rgba(245,196,0,0.25);
+    border-top: 3px solid #F5C400;
+    border-radius: 10px;
+    padding: 16px 20px;
+}
+[data-testid="metric-container"] label {
+    font-family: 'Montserrat', sans-serif !important;
+    font-size: 10px !important;
+    color: #F5C400 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+[data-testid="metric-container"] [data-testid="stMetricValue"] {
+    font-family: 'Montserrat', sans-serif !important;
+    font-size: 24px !important;
+    font-weight: 700 !important;
+    color: #FFFFFF !important;
+}
+[data-testid="metric-container"] [data-testid="stMetricDelta"] {
+    color: #00B5A0 !important;
+}
+
+/* ── TABS ── */
+[data-testid="stTabs"] [role="tablist"] {
+    background: #2C2C2C;
+    border-radius: 10px;
+    padding: 4px;
+    border: 1px solid rgba(245,196,0,0.15);
+}
+[data-testid="stTabs"] [role="tab"] {
+    border-radius: 7px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    padding: 8px 16px !important;
+    color: #aaaaaa !important;
+}
+[data-testid="stTabs"] [role="tab"][aria-selected="true"] {
+    background: #F5C400 !important;
+    color: #1A1A1A !important;
+    font-weight: 700 !important;
+    border: none !important;
+}
+
+/* ── BOUTONS ── */
+.stButton > button {
+    font-family: 'Montserrat', sans-serif !important;
+    font-weight: 600 !important;
+    border-radius: 8px !important;
+    background: #F5C400 !important;
+    color: #1A1A1A !important;
+    border: none !important;
+    transition: all 0.2s ease;
+}
+.stButton > button:hover {
+    background: #e6b800 !important;
+    color: #1A1A1A !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(245,196,0,0.3) !important;
+}
+button[kind="primary"] {
+    background: #F5C400 !important;
+    color: #1A1A1A !important;
+}
+button[kind="secondary"] {
+    background: #2C2C2C !important;
+    color: #FFFFFF !important;
+    border: 1px solid rgba(245,196,0,0.3) !important;
+}
+
+/* ── INPUTS ── */
+.stTextInput input, .stTextArea textarea, .stSelectbox select {
+    background: #2C2C2C !important;
+    border: 1px solid rgba(245,196,0,0.3) !important;
+    border-radius: 8px !important;
+    color: #FFFFFF !important;
+}
+.stTextInput input:focus, .stTextArea textarea:focus {
+    border-color: #F5C400 !important;
+    box-shadow: 0 0 0 2px rgba(245,196,0,0.15) !important;
+}
+
+/* ── CHAT ── */
+.chat-user {
+    background: linear-gradient(135deg, #F5C400, #e6a800);
+    color: #1A1A1A;
+    border-radius: 16px 16px 4px 16px;
+    padding: 12px 16px;
+    margin: 6px 0 6px 60px;
+    font-size: 14px;
+    line-height: 1.65;
+    font-weight: 500;
+}
+.chat-ai {
+    background: #2C2C2C;
+    border: 1px solid rgba(0,181,160,0.2);
+    border-left: 3px solid #00B5A0;
+    color: #FFFFFF;
+    border-radius: 4px 16px 16px 16px;
+    padding: 12px 16px;
+    margin: 6px 60px 6px 0;
+    font-size: 14px;
+    line-height: 1.7;
+}
+.chat-meta {
+    font-size: 10px;
+    color: #888888;
+    font-family: 'Montserrat', monospace;
+    margin-bottom: 3px;
+}
+
+/* ── PREDICTION CARDS ── */
+.pred-card {
+    background: #2C2C2C;
+    border: 1px solid rgba(245,196,0,0.1);
+    border-left: 4px solid #F5C400;
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 12px;
+}
+.pred-card.high  { border-left-color: #e74c3c; }
+.pred-card.medium { border-left-color: #F5C400; }
+.pred-card.low   { border-left-color: #00B5A0; }
+
+/* ── TITRES SECTIONS ── */
+.section-title {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    color: #FFFFFF;
+    letter-spacing: -0.02em;
+    margin-bottom: 2px;
+    border-left: 4px solid #F5C400;
+    padding-left: 12px;
+}
+.section-sub {
+    font-size: 13px;
+    color: #888888;
+    margin-bottom: 18px;
+    padding-left: 16px;
+}
+
+/* ── STATUS BADGES ── */
+.status-ok {
+    background: rgba(0,181,160,0.1);
+    border: 1px solid rgba(0,181,160,0.35);
+    color: #00B5A0;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-family: 'Montserrat', monospace;
+}
+.status-err {
+    background: rgba(231,76,60,0.1);
+    border: 1px solid rgba(231,76,60,0.35);
+    color: #e74c3c;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-family: 'Montserrat', monospace;
+}
+
+/* ── CONTAINERS / CARDS ── */
+[data-testid="stVerticalBlockBorderWrapper"] {
+    background: #2C2C2C !important;
+    border: 1px solid rgba(245,196,0,0.15) !important;
+    border-radius: 12px !important;
+}
+
+/* ── DATAFRAME ── */
+[data-testid="stDataFrame"] {
+    background: #2C2C2C !important;
+    border-radius: 10px !important;
+    border: 1px solid rgba(245,196,0,0.15) !important;
+}
+
+/* ── DIVIDER ── */
+hr { border-color: rgba(245,196,0,0.2) !important; }
+
+/* ── RADIO SIDEBAR ── */
+[data-testid="stSidebar"] .stRadio label {
+    color: #CCCCCC !important;
+    font-size: 14px !important;
+    padding: 4px 0 !important;
+}
+[data-testid="stSidebar"] .stRadio label:hover { color: #F5C400 !important; }
+
+/* ── HIDE DEFAULT ELEMENTS ── */
+#MainMenu, footer, header { visibility: hidden; }
+
+/* ── PROGRESS BAR ── */
+.stProgress > div > div { background-color: #F5C400 !important; }
+
+/* ── EXPANDER ── */
+[data-testid="stExpander"] {
+    background: #2C2C2C !important;
+    border: 1px solid rgba(245,196,0,0.15) !important;
+    border-radius: 10px !important;
+}
+
+/* ── SPINNER ── */
+.stSpinner > div { border-top-color: #F5C400 !important; }
+
+/* ── ALERTS ── */
+.stAlert { border-radius: 10px !important; }
 </style>
 """, unsafe_allow_html=True)
 
+# ── PALETTE WAFASALAF ──────────────────────────────────────────────
 MARQUES = ['Wafasalaf', 'Salafin', 'Eqdom', 'Sofac']
-COLORS  = {'Wafasalaf':'#4F8EF7','Salafin':'#4FC18A','Eqdom':'#F7C44F','Sofac':'#F76B4F'}
-BG2='#11141f'; BG3='#181c2b'; GRID='rgba(255,255,255,0.05)'; TEXT='#e8eaf2'; TEXT2='#8b8fa8'
+COLORS  = {'Wafasalaf':'#F5C400','Salafin':'#00B5A0','Eqdom':'#FF6B35','Sofac':'#8B5CF6'}
+BG2='#1A1A1A'; BG3='#2C2C2C'; GRID='rgba(245,196,0,0.07)'; TEXT='#FFFFFF'; TEXT2='#888888'
 PLOT_L = dict(
     paper_bgcolor=BG2, plot_bgcolor=BG3,
-    font=dict(family='DM Sans', color=TEXT2, size=12),
+    font=dict(family='Open Sans', color=TEXT2, size=12),
     margin=dict(l=16, r=16, t=40, b=16),
-    xaxis=dict(gridcolor=GRID, zeroline=False),
-    yaxis=dict(gridcolor=GRID, zeroline=False),
+    xaxis=dict(gridcolor=GRID, zeroline=False, color=TEXT2),
+    yaxis=dict(gridcolor=GRID, zeroline=False, color=TEXT2),
 )
 
 for k, v in [
     ('client', None), ('df', None), ('context_json', None),
     ('historique_chat', []), ('last_rapport', ''),
     ('last_load', None), ('load_status', ''),
-    ('pending_q', ''),
 ]:
     if k not in st.session_state:
         st.session_state[k] = v
@@ -135,7 +353,7 @@ def need_data():
 
 def need_api():
     if not st.session_state.client:
-        st.warning("⚠️ Cle API Groq non configuree. Allez dans **Configuration** et entrez votre GROQ_API_KEY.")
+        st.warning("Cle API Groq non configuree. Allez dans Configuration.")
         st.stop()
 
 def is_empty(val):
@@ -146,6 +364,7 @@ def init_groq():
     if GROQ_API_KEY and st.session_state.client is None:
         try:
             client = Groq(api_key=GROQ_API_KEY)
+            # Test rapide pour valider la clé
             st.session_state.client = client
         except Exception:
             pass
@@ -481,14 +700,14 @@ def chart_timeline(df):
 # ── SIDEBAR ───────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("""
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
-      <div style="width:34px;height:34px;border-radius:10px;
-                  background:linear-gradient(135deg,#0055A5,#1e6fd4);
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid rgba(245,196,0,0.2);">
+      <div style="width:40px;height:40px;border-radius:10px;
+                  background:#F5C400;
                   display:flex;align-items:center;justify-content:center;
-                  font-size:15px;font-weight:800;color:#fff;">W</div>
+                  font-size:18px;font-weight:900;color:#1A1A1A;">W</div>
       <div>
-        <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#e8eaf2;">Wafasalaf</div>
-        <div style="font-size:11px;color:#5a5e75;">Veille Publicitaire IA</div>
+        <div style="font-family:'Montserrat',sans-serif;font-size:15px;font-weight:800;color:#FFFFFF;letter-spacing:-0.01em;">Wafasalaf</div>
+        <div style="font-size:10px;color:#F5C400;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Veille Publicitaire IA</div>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -510,7 +729,7 @@ with st.sidebar:
         st.markdown('<div class="status-err">Erreur chargement Drive</div>', unsafe_allow_html=True)
 
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-    if st.button("Rafraichir les donnees", use_container_width=True):
+    if st.button("Rafraichir les donnees", width='stretch'):
         load_from_drive.clear()
         st.session_state.df           = None
         st.session_state.context_json = None
@@ -540,7 +759,7 @@ if page == "⚙️ Configuration":
                                          placeholder="1aBcDeFgHiJkLmNoPqRsTuVwX")
         json_id_input = col2.text_input("ID du fichier JSON", value=DRIVE_JSON_ID,
                                          placeholder="1zYxWvUTsRqPoNmLkJiHgFeDcBa")
-        if st.button("Sauvegarder et charger", type="primary", use_container_width=True):
+        if st.button("Sauvegarder et charger", type="primary", width='stretch'):
             if csv_id_input and json_id_input:
                 load_from_drive.clear()
                 with st.spinner("Chargement depuis Drive..."):
@@ -564,9 +783,10 @@ if page == "⚙️ Configuration":
         api_input = st.text_input("Cle API Groq", value=GROQ_API_KEY,
                                    type="password", label_visibility="collapsed",
                                    placeholder="gsk_...")
-        if st.button("Connecter Groq", type="primary", use_container_width=True):
+        if st.button("Connecter Groq", type="primary", width='stretch'):
             try:
                 test_client = Groq(api_key=api_input)
+                # Test de connexion rapide
                 test_client.chat.completions.create(
                     model=MODEL_NAME,
                     messages=[{"role":"user","content":"test"}],
@@ -581,7 +801,7 @@ if page == "⚙️ Configuration":
         col1, col2 = st.columns(2)
         csv_file  = col1.file_uploader("social_posts_enrichi.csv", type=["csv"])
         json_file = col2.file_uploader("llm_context.json", type=["json"])
-        if st.button("Charger les fichiers uploades", use_container_width=True):
+        if st.button("Charger les fichiers uploades", width='stretch'):
             if csv_file and json_file:
                 df_raw = pd.read_csv(csv_file, low_memory=False)
                 df_raw['post_date'] = pd.to_datetime(df_raw['post_date'], utc=True, errors='coerce')
@@ -622,15 +842,15 @@ elif page == "📊 Dashboard":
     k5.metric("Langue top",      "Arabe/Darija","x26 vs FR")
     st.divider()
     c1,c2 = st.columns(2)
-    c1.plotly_chart(chart_dei(ctx),        use_container_width=True)
-    c2.plotly_chart(chart_radar(ctx),      use_container_width=True)
+    c1.plotly_chart(chart_dei(ctx),        width='stretch')
+    c2.plotly_chart(chart_radar(ctx),      width='stretch')
     c1,c2 = st.columns(2)
-    c1.plotly_chart(chart_engagement(df),  use_container_width=True)
-    c2.plotly_chart(chart_langue(df),      use_container_width=True)
+    c1.plotly_chart(chart_engagement(df),  width='stretch')
+    c2.plotly_chart(chart_langue(df),      width='stretch')
     c1,c2 = st.columns(2)
-    c1.plotly_chart(chart_com_noncom(df),  use_container_width=True)
-    c2.plotly_chart(chart_offre(df),       use_container_width=True)
-    st.plotly_chart(chart_timeline(df),    use_container_width=True)
+    c1.plotly_chart(chart_com_noncom(df),  width='stretch')
+    c2.plotly_chart(chart_offre(df),       width='stretch')
+    st.plotly_chart(chart_timeline(df),    width='stretch')
     st.divider()
     st.markdown("#### Tableau recapitulatif")
     recap = []
@@ -647,20 +867,16 @@ elif page == "📊 Dashboard":
             'Richesse':    ind.get('Richesse', '-'),
             'Eng. median': eng.get('median', '-'),
         })
-    st.dataframe(pd.DataFrame(recap), use_container_width=True, hide_index=True,
+    st.dataframe(pd.DataFrame(recap), width='stretch', hide_index=True,
                  column_config={
                      'DEI': st.column_config.ProgressColumn('DEI', min_value=0, max_value=100, format='%.1f'),
                  })
 
 # ── CHAT LLM ──────────────────────────────────────────────────────
 elif page == "💬 Chat LLM":
-    need_data()
-    need_api()
-
+    need_data(); need_api()
     st.markdown('<div class="section-title">Chat Strategique</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-sub">Questions libres — contexte RAG injecte automatiquement.</div>', unsafe_allow_html=True)
-
-    # ── Questions suggérées ──
     st.markdown("**Questions suggerees :**")
     qs = [
         "Pourquoi Salafin domine le DEI ? Que doit faire Wafasalaf ?",
@@ -672,47 +888,29 @@ elif page == "💬 Chat LLM":
     ]
     cols = st.columns(3)
     for i, q in enumerate(qs):
-        label = q[:44] + '...' if len(q) > 44 else q
-        if cols[i % 3].button(label, key=f"q{i}", use_container_width=True):
+        if cols[i%3].button(q[:44]+'...' if len(q)>44 else q, key=f"q{i}", width='stretch'):
             st.session_state['pending_q'] = q
-
-    # ── FIX : traiter pending_q AVANT le form ──
-    if st.session_state.get('pending_q', ''):
-        pending = st.session_state['pending_q']
-        st.session_state['pending_q'] = ''
-        with st.spinner("Analyse en cours..."):
-            chat_llm(pending)
-        st.rerun()
-
     st.divider()
-
-    # ── Historique ──
     for turn in st.session_state.historique_chat:
-        ts = turn.get('timestamp', '')[:16].replace('T', ' ')
+        ts = turn.get('timestamp','')[:16].replace('T',' ')
         st.markdown(f'<div class="chat-meta">Vous · {ts}</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="chat-user">{turn["question"]}</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="chat-meta">Assistant</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="chat-ai">{turn["reponse"].replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
-
-    # ── Formulaire ──
+        st.markdown(f'<div class="chat-ai">{turn["reponse"].replace(chr(10),"<br>")}</div>', unsafe_allow_html=True)
     with st.form("chat_form", clear_on_submit=True):
-        user_q = st.text_area(
-            "Votre question", height=80,
-            placeholder="Posez votre question strategique...",
-            label_visibility="visible",
-        )
-        c1, c2 = st.columns([5, 1])
-        send  = c1.form_submit_button("Envoyer", type="primary", use_container_width=True)
-        clear = c2.form_submit_button("Effacer", use_container_width=True)
-
+        user_q = st.text_area("Votre question", height=80,
+                               placeholder="Posez votre question strategique...",
+                               label_visibility="visible",
+                               value=st.session_state.pop("pending_q", ""))
+        c1,c2 = st.columns([5,1])
+        send  = c1.form_submit_button("Envoyer", type="primary", width='stretch')
+        clear = c2.form_submit_button("Effacer", width='stretch')
     if clear:
-        st.session_state.historique_chat = []
-        st.rerun()
+        st.session_state.historique_chat = []; st.rerun()
     if send and user_q.strip():
         with st.spinner("Analyse en cours..."):
             chat_llm(user_q.strip())
         st.rerun()
-
     if st.session_state.historique_chat:
         hist = "\n\n".join(f"Q: {t['question']}\nR: {t['reponse']}"
                            for t in st.session_state.historique_chat)
@@ -725,20 +923,21 @@ elif page == "📅 Comparaison":
     need_data(); need_api()
     st.markdown('<div class="section-title">Comparaison par Periode</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-sub">Analyse LLM + graphiques filtres sur une fenetre temporelle.</div>', unsafe_allow_html=True)
+    # Init session state for dates
     if 'cmp_start' not in st.session_state: st.session_state.cmp_start = datetime.date(2025,6,1)
     if 'cmp_end'   not in st.session_state: st.session_state.cmp_end   = datetime.date(2025,12,31)
     with st.container(border=True):
         pc1,pc2,pc3,pc4 = st.columns(4)
-        if pc1.button("S1 2025",  use_container_width=True):
+        if pc1.button("S1 2025",  width='stretch'):
             st.session_state.cmp_start, st.session_state.cmp_end = datetime.date(2025,1,1),  datetime.date(2025,6,30)
             st.rerun()
-        if pc2.button("S2 2025",  use_container_width=True):
+        if pc2.button("S2 2025",  width='stretch'):
             st.session_state.cmp_start, st.session_state.cmp_end = datetime.date(2025,7,1),  datetime.date(2025,12,31)
             st.rerun()
-        if pc3.button("Q1 2026",  use_container_width=True):
+        if pc3.button("Q1 2026",  width='stretch'):
             st.session_state.cmp_start, st.session_state.cmp_end = datetime.date(2026,1,1),  datetime.date(2026,3,4)
             st.rerun()
-        if pc4.button("Complete", use_container_width=True):
+        if pc4.button("Complete", width='stretch'):
             st.session_state.cmp_start, st.session_state.cmp_end = datetime.date(2025,1,31), datetime.date(2026,3,4)
             st.rerun()
         c1,c2,c3 = st.columns(3)
@@ -747,7 +946,7 @@ elif page == "📅 Comparaison":
         focus    = c3.selectbox("Focus", MARQUES)
         if d_start != st.session_state.cmp_start: st.session_state.cmp_start = d_start
         if d_end   != st.session_state.cmp_end:   st.session_state.cmp_end   = d_end
-        run = st.button("Lancer l'analyse", type="primary", use_container_width=True)
+        run = st.button("Lancer l'analyse", type="primary", width='stretch')
     if run:
         with st.spinner("Analyse en cours..."):
             stats, analyse, err = comparer_periode(str(d_start), str(d_end), focus=focus)
@@ -758,14 +957,14 @@ elif page == "📅 Comparaison":
             tbl = pd.DataFrame({m: {'Posts':v['nb_posts'],'Posts/sem':v['posts_semaine'],
                                     'Eng. median':v['engagement_median'],'Eng. max':v['engagement_max']}
                                 for m,v in stats.items()}).T
-            st.dataframe(tbl, use_container_width=True)
+            st.dataframe(tbl, width='stretch')
             df_f = st.session_state.df[
                 (st.session_state.df['date_debut'] >= pd.Timestamp(d_start)) &
                 (st.session_state.df['date_debut'] <= pd.Timestamp(d_end))
             ]
             c1,c2 = st.columns(2)
-            c1.plotly_chart(chart_engagement(df_f), use_container_width=True)
-            c2.plotly_chart(chart_langue(df_f),     use_container_width=True)
+            c1.plotly_chart(chart_engagement(df_f), width='stretch')
+            c2.plotly_chart(chart_langue(df_f),     width='stretch')
             with st.container(border=True):
                 st.markdown(f"**Analyse LLM — {focus}**")
                 st.markdown(analyse)
@@ -782,7 +981,7 @@ elif page == "🔮 Prediction":
         conc   = c1.selectbox("Concurrent", ['Salafin','Eqdom','Sofac'])
         horiz  = c2.selectbox("Horizon", ['1 prochain mois','3 prochains mois','6 prochains mois'], index=1)
         nb_p   = c3.selectbox("Nb predictions", [3,4,5], index=1)
-        run_p  = st.button("Predire", type="primary", use_container_width=True)
+        run_p  = st.button("Predire", type="primary", width='stretch')
     if run_p:
         with st.spinner(f"Analyse de {conc}..."):
             data = predire_prochaines_offres(conc, horiz, nb_p)
@@ -813,7 +1012,7 @@ elif page == "🔮 Prediction":
                   </div>
                   <div style="font-size:12px;color:#8b8fa8;margin-bottom:7px;">{p.get('justification')}</div>
                   <div style="font-size:12px;padding:7px 11px;border-radius:7px;
-                              background:rgba(79,142,247,0.08);border:1px solid rgba(79,142,247,0.15);color:#4F8EF7;">
+                              background:rgba(245,196,0,0.08);border:1px solid rgba(245,196,0,0.2);color:#F5C400;">
                     -> {p.get('contre_mesure_wafasalaf')}
                   </div>
                 </div>""", unsafe_allow_html=True)
@@ -840,7 +1039,7 @@ elif page == "📄 Rapport PDF":
         c1,c2 = st.columns(2)
         r_start = c1.date_input("Debut", value=datetime.date(2025,1,1))
         r_end   = c2.date_input("Fin",   value=datetime.date(2026,3,4))
-        gen_btn = st.button("Generer le rapport", type="primary", use_container_width=True)
+        gen_btn = st.button("Generer le rapport", type="primary", width='stretch')
     if gen_btn:
         with st.spinner("Generation en cours (30-60 sec)..."):
             pdf_bytes, contenu = generer_rapport_pdf(str(r_start), str(r_end))
@@ -856,10 +1055,10 @@ elif page == "📄 Rapport PDF":
             c1,c2,c3 = st.columns(3)
             c1.download_button("Telecharger PDF",  data=pdf_bytes,
                                file_name=f"{name}.pdf", mime="application/pdf",
-                               use_container_width=True, type="primary")
+                               width='stretch', type="primary")
             c2.download_button("Telecharger TXT",  data=contenu.encode(),
                                file_name=f"{name}.txt", mime="text/plain",
-                               use_container_width=True)
+                               width='stretch')
             html_out = (f"<!DOCTYPE html><html lang='fr'><head><meta charset='UTF-8'>"
                         f"<title>Rapport Wafasalaf</title>"
                         f"<style>body{{font-family:Georgia,serif;max-width:860px;margin:48px auto;"
@@ -872,7 +1071,7 @@ elif page == "📄 Rapport PDF":
                         f"{'<br>'.join(contenu.split(chr(10)))}</body></html>")
             c3.download_button("Telecharger HTML", data=html_out.encode(),
                                file_name=f"{name}.html", mime="text/html",
-                               use_container_width=True)
+                               width='stretch')
     elif st.session_state.last_rapport:
         with st.expander("Dernier rapport genere"):
             st.markdown(st.session_state.last_rapport)
