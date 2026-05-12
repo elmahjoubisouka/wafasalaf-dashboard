@@ -70,6 +70,7 @@ for k, v in [
     ('client', None), ('df', None), ('context_json', None),
     ('historique_chat', []), ('last_rapport', ''),
     ('last_load', None), ('load_status', ''),
+    ('pending_q', ''),
 ]:
     if k not in st.session_state:
         st.session_state[k] = v
@@ -134,7 +135,7 @@ def need_data():
 
 def need_api():
     if not st.session_state.client:
-        st.warning("Cle API Groq non configuree. Allez dans Configuration.")
+        st.warning("⚠️ Cle API Groq non configuree. Allez dans **Configuration** et entrez votre GROQ_API_KEY.")
         st.stop()
 
 def is_empty(val):
@@ -145,7 +146,6 @@ def init_groq():
     if GROQ_API_KEY and st.session_state.client is None:
         try:
             client = Groq(api_key=GROQ_API_KEY)
-            # Test rapide pour valider la clé
             st.session_state.client = client
         except Exception:
             pass
@@ -510,7 +510,7 @@ with st.sidebar:
         st.markdown('<div class="status-err">Erreur chargement Drive</div>', unsafe_allow_html=True)
 
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-    if st.button("Rafraichir les donnees", width='stretch'):
+    if st.button("Rafraichir les donnees", use_container_width=True):
         load_from_drive.clear()
         st.session_state.df           = None
         st.session_state.context_json = None
@@ -540,7 +540,7 @@ if page == "⚙️ Configuration":
                                          placeholder="1aBcDeFgHiJkLmNoPqRsTuVwX")
         json_id_input = col2.text_input("ID du fichier JSON", value=DRIVE_JSON_ID,
                                          placeholder="1zYxWvUTsRqPoNmLkJiHgFeDcBa")
-        if st.button("Sauvegarder et charger", type="primary", width='stretch'):
+        if st.button("Sauvegarder et charger", type="primary", use_container_width=True):
             if csv_id_input and json_id_input:
                 load_from_drive.clear()
                 with st.spinner("Chargement depuis Drive..."):
@@ -564,10 +564,9 @@ if page == "⚙️ Configuration":
         api_input = st.text_input("Cle API Groq", value=GROQ_API_KEY,
                                    type="password", label_visibility="collapsed",
                                    placeholder="gsk_...")
-        if st.button("Connecter Groq", type="primary", width='stretch'):
+        if st.button("Connecter Groq", type="primary", use_container_width=True):
             try:
                 test_client = Groq(api_key=api_input)
-                # Test de connexion rapide
                 test_client.chat.completions.create(
                     model=MODEL_NAME,
                     messages=[{"role":"user","content":"test"}],
@@ -582,7 +581,7 @@ if page == "⚙️ Configuration":
         col1, col2 = st.columns(2)
         csv_file  = col1.file_uploader("social_posts_enrichi.csv", type=["csv"])
         json_file = col2.file_uploader("llm_context.json", type=["json"])
-        if st.button("Charger les fichiers uploades", width='stretch'):
+        if st.button("Charger les fichiers uploades", use_container_width=True):
             if csv_file and json_file:
                 df_raw = pd.read_csv(csv_file, low_memory=False)
                 df_raw['post_date'] = pd.to_datetime(df_raw['post_date'], utc=True, errors='coerce')
@@ -623,15 +622,15 @@ elif page == "📊 Dashboard":
     k5.metric("Langue top",      "Arabe/Darija","x26 vs FR")
     st.divider()
     c1,c2 = st.columns(2)
-    c1.plotly_chart(chart_dei(ctx),        width='stretch')
-    c2.plotly_chart(chart_radar(ctx),      width='stretch')
+    c1.plotly_chart(chart_dei(ctx),        use_container_width=True)
+    c2.plotly_chart(chart_radar(ctx),      use_container_width=True)
     c1,c2 = st.columns(2)
-    c1.plotly_chart(chart_engagement(df),  width='stretch')
-    c2.plotly_chart(chart_langue(df),      width='stretch')
+    c1.plotly_chart(chart_engagement(df),  use_container_width=True)
+    c2.plotly_chart(chart_langue(df),      use_container_width=True)
     c1,c2 = st.columns(2)
-    c1.plotly_chart(chart_com_noncom(df),  width='stretch')
-    c2.plotly_chart(chart_offre(df),       width='stretch')
-    st.plotly_chart(chart_timeline(df),    width='stretch')
+    c1.plotly_chart(chart_com_noncom(df),  use_container_width=True)
+    c2.plotly_chart(chart_offre(df),       use_container_width=True)
+    st.plotly_chart(chart_timeline(df),    use_container_width=True)
     st.divider()
     st.markdown("#### Tableau recapitulatif")
     recap = []
@@ -648,16 +647,20 @@ elif page == "📊 Dashboard":
             'Richesse':    ind.get('Richesse', '-'),
             'Eng. median': eng.get('median', '-'),
         })
-    st.dataframe(pd.DataFrame(recap), width='stretch', hide_index=True,
+    st.dataframe(pd.DataFrame(recap), use_container_width=True, hide_index=True,
                  column_config={
                      'DEI': st.column_config.ProgressColumn('DEI', min_value=0, max_value=100, format='%.1f'),
                  })
 
 # ── CHAT LLM ──────────────────────────────────────────────────────
 elif page == "💬 Chat LLM":
-    need_data(); need_api()
+    need_data()
+    need_api()
+
     st.markdown('<div class="section-title">Chat Strategique</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-sub">Questions libres — contexte RAG injecte automatiquement.</div>', unsafe_allow_html=True)
+
+    # ── Questions suggérées ──
     st.markdown("**Questions suggerees :**")
     qs = [
         "Pourquoi Salafin domine le DEI ? Que doit faire Wafasalaf ?",
@@ -669,29 +672,47 @@ elif page == "💬 Chat LLM":
     ]
     cols = st.columns(3)
     for i, q in enumerate(qs):
-        if cols[i%3].button(q[:44]+'...' if len(q)>44 else q, key=f"q{i}", width='stretch'):
+        label = q[:44] + '...' if len(q) > 44 else q
+        if cols[i % 3].button(label, key=f"q{i}", use_container_width=True):
             st.session_state['pending_q'] = q
+
+    # ── FIX : traiter pending_q AVANT le form ──
+    if st.session_state.get('pending_q', ''):
+        pending = st.session_state['pending_q']
+        st.session_state['pending_q'] = ''
+        with st.spinner("Analyse en cours..."):
+            chat_llm(pending)
+        st.rerun()
+
     st.divider()
+
+    # ── Historique ──
     for turn in st.session_state.historique_chat:
-        ts = turn.get('timestamp','')[:16].replace('T',' ')
+        ts = turn.get('timestamp', '')[:16].replace('T', ' ')
         st.markdown(f'<div class="chat-meta">Vous · {ts}</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="chat-user">{turn["question"]}</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="chat-meta">Assistant</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="chat-ai">{turn["reponse"].replace(chr(10),"<br>")}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="chat-ai">{turn["reponse"].replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
+
+    # ── Formulaire ──
     with st.form("chat_form", clear_on_submit=True):
-        user_q = st.text_area("Votre question", height=80,
-                               placeholder="Posez votre question strategique...",
-                               label_visibility="visible",
-                               value=st.session_state.pop("pending_q", ""))
-        c1,c2 = st.columns([5,1])
-        send  = c1.form_submit_button("Envoyer", type="primary", width='stretch')
-        clear = c2.form_submit_button("Effacer", width='stretch')
+        user_q = st.text_area(
+            "Votre question", height=80,
+            placeholder="Posez votre question strategique...",
+            label_visibility="visible",
+        )
+        c1, c2 = st.columns([5, 1])
+        send  = c1.form_submit_button("Envoyer", type="primary", use_container_width=True)
+        clear = c2.form_submit_button("Effacer", use_container_width=True)
+
     if clear:
-        st.session_state.historique_chat = []; st.rerun()
+        st.session_state.historique_chat = []
+        st.rerun()
     if send and user_q.strip():
         with st.spinner("Analyse en cours..."):
             chat_llm(user_q.strip())
         st.rerun()
+
     if st.session_state.historique_chat:
         hist = "\n\n".join(f"Q: {t['question']}\nR: {t['reponse']}"
                            for t in st.session_state.historique_chat)
@@ -704,21 +725,20 @@ elif page == "📅 Comparaison":
     need_data(); need_api()
     st.markdown('<div class="section-title">Comparaison par Periode</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-sub">Analyse LLM + graphiques filtres sur une fenetre temporelle.</div>', unsafe_allow_html=True)
-    # Init session state for dates
     if 'cmp_start' not in st.session_state: st.session_state.cmp_start = datetime.date(2025,6,1)
     if 'cmp_end'   not in st.session_state: st.session_state.cmp_end   = datetime.date(2025,12,31)
     with st.container(border=True):
         pc1,pc2,pc3,pc4 = st.columns(4)
-        if pc1.button("S1 2025",  width='stretch'):
+        if pc1.button("S1 2025",  use_container_width=True):
             st.session_state.cmp_start, st.session_state.cmp_end = datetime.date(2025,1,1),  datetime.date(2025,6,30)
             st.rerun()
-        if pc2.button("S2 2025",  width='stretch'):
+        if pc2.button("S2 2025",  use_container_width=True):
             st.session_state.cmp_start, st.session_state.cmp_end = datetime.date(2025,7,1),  datetime.date(2025,12,31)
             st.rerun()
-        if pc3.button("Q1 2026",  width='stretch'):
+        if pc3.button("Q1 2026",  use_container_width=True):
             st.session_state.cmp_start, st.session_state.cmp_end = datetime.date(2026,1,1),  datetime.date(2026,3,4)
             st.rerun()
-        if pc4.button("Complete", width='stretch'):
+        if pc4.button("Complete", use_container_width=True):
             st.session_state.cmp_start, st.session_state.cmp_end = datetime.date(2025,1,31), datetime.date(2026,3,4)
             st.rerun()
         c1,c2,c3 = st.columns(3)
@@ -727,7 +747,7 @@ elif page == "📅 Comparaison":
         focus    = c3.selectbox("Focus", MARQUES)
         if d_start != st.session_state.cmp_start: st.session_state.cmp_start = d_start
         if d_end   != st.session_state.cmp_end:   st.session_state.cmp_end   = d_end
-        run = st.button("Lancer l'analyse", type="primary", width='stretch')
+        run = st.button("Lancer l'analyse", type="primary", use_container_width=True)
     if run:
         with st.spinner("Analyse en cours..."):
             stats, analyse, err = comparer_periode(str(d_start), str(d_end), focus=focus)
@@ -738,14 +758,14 @@ elif page == "📅 Comparaison":
             tbl = pd.DataFrame({m: {'Posts':v['nb_posts'],'Posts/sem':v['posts_semaine'],
                                     'Eng. median':v['engagement_median'],'Eng. max':v['engagement_max']}
                                 for m,v in stats.items()}).T
-            st.dataframe(tbl, width='stretch')
+            st.dataframe(tbl, use_container_width=True)
             df_f = st.session_state.df[
                 (st.session_state.df['date_debut'] >= pd.Timestamp(d_start)) &
                 (st.session_state.df['date_debut'] <= pd.Timestamp(d_end))
             ]
             c1,c2 = st.columns(2)
-            c1.plotly_chart(chart_engagement(df_f), width='stretch')
-            c2.plotly_chart(chart_langue(df_f),     width='stretch')
+            c1.plotly_chart(chart_engagement(df_f), use_container_width=True)
+            c2.plotly_chart(chart_langue(df_f),     use_container_width=True)
             with st.container(border=True):
                 st.markdown(f"**Analyse LLM — {focus}**")
                 st.markdown(analyse)
@@ -762,7 +782,7 @@ elif page == "🔮 Prediction":
         conc   = c1.selectbox("Concurrent", ['Salafin','Eqdom','Sofac'])
         horiz  = c2.selectbox("Horizon", ['1 prochain mois','3 prochains mois','6 prochains mois'], index=1)
         nb_p   = c3.selectbox("Nb predictions", [3,4,5], index=1)
-        run_p  = st.button("Predire", type="primary", width='stretch')
+        run_p  = st.button("Predire", type="primary", use_container_width=True)
     if run_p:
         with st.spinner(f"Analyse de {conc}..."):
             data = predire_prochaines_offres(conc, horiz, nb_p)
@@ -820,7 +840,7 @@ elif page == "📄 Rapport PDF":
         c1,c2 = st.columns(2)
         r_start = c1.date_input("Debut", value=datetime.date(2025,1,1))
         r_end   = c2.date_input("Fin",   value=datetime.date(2026,3,4))
-        gen_btn = st.button("Generer le rapport", type="primary", width='stretch')
+        gen_btn = st.button("Generer le rapport", type="primary", use_container_width=True)
     if gen_btn:
         with st.spinner("Generation en cours (30-60 sec)..."):
             pdf_bytes, contenu = generer_rapport_pdf(str(r_start), str(r_end))
@@ -836,10 +856,10 @@ elif page == "📄 Rapport PDF":
             c1,c2,c3 = st.columns(3)
             c1.download_button("Telecharger PDF",  data=pdf_bytes,
                                file_name=f"{name}.pdf", mime="application/pdf",
-                               width='stretch', type="primary")
+                               use_container_width=True, type="primary")
             c2.download_button("Telecharger TXT",  data=contenu.encode(),
                                file_name=f"{name}.txt", mime="text/plain",
-                               width='stretch')
+                               use_container_width=True)
             html_out = (f"<!DOCTYPE html><html lang='fr'><head><meta charset='UTF-8'>"
                         f"<title>Rapport Wafasalaf</title>"
                         f"<style>body{{font-family:Georgia,serif;max-width:860px;margin:48px auto;"
@@ -852,7 +872,7 @@ elif page == "📄 Rapport PDF":
                         f"{'<br>'.join(contenu.split(chr(10)))}</body></html>")
             c3.download_button("Telecharger HTML", data=html_out.encode(),
                                file_name=f"{name}.html", mime="text/html",
-                               width='stretch')
+                               use_container_width=True)
     elif st.session_state.last_rapport:
         with st.expander("Dernier rapport genere"):
             st.markdown(st.session_state.last_rapport)
