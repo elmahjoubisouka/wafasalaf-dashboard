@@ -859,12 +859,13 @@ elif page == "💬 Chat LLM":
         "Quelle offre est la plus performante sur le marche ?",
         "Analyse la correlation DEI-engagement. Quels enseignements ?",
     ]
-    # ── Questions suggérées : clic → remplit le champ ──────────────
+    # ── Questions suggérées : clic → envoie directement ─────────
     cols = st.columns(3)
     for i, q in enumerate(qs):
         label = q[:44] + '...' if len(q) > 44 else q
         if cols[i % 3].button(label, key=f"q{i}", width="stretch"):
-            st.session_state["chat_input_val"] = q
+            with st.spinner("Analyse en cours..."):
+                chat_llm(q)
             st.rerun()
 
     st.divider()
@@ -878,35 +879,29 @@ elif page == "💬 Chat LLM":
         st.markdown(f'<div class="chat-ai">{turn["reponse"].replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-    # ── ZONE DE SAISIE ───────────────────────────────────────────
-    if "chat_input_val" not in st.session_state:
-        st.session_state["chat_input_val"] = ""
-
-    user_q = st.text_area(
-        "Votre question",
-        height=90,
-        placeholder="Posez votre question strategique...",
-        value=st.session_state["chat_input_val"],
-        key="chat_input",
-    )
-
+    # ── ZONE DE SAISIE LIBRE ─────────────────────────────────────
     col_send, col_clear = st.columns([5, 1])
 
     with col_send:
         send_btn = st.button("Envoyer ✉", type="primary", width="stretch", key="btn_send")
 
     with col_clear:
-        clear_btn = st.button("Effacer", width="stretch", key="btn_clear")
+        clear_btn = st.button("Effacer historique", width="stretch", key="btn_clear")
+
+    user_q = st.text_area(
+        "Votre question",
+        height=90,
+        placeholder="Posez votre question strategique...",
+        key="chat_input",
+    )
 
     if clear_btn:
         st.session_state.historique_chat = []
-        st.session_state["chat_input_val"] = ""
         st.rerun()
 
     if send_btn:
         question = st.session_state.get("chat_input", "").strip()
         if question:
-            st.session_state["chat_input_val"] = ""
             with st.spinner("Analyse en cours..."):
                 chat_llm(question)
             st.rerun()
