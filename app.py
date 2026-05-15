@@ -1,6 +1,6 @@
 """
 Wafasalaf — Dashboard Veille Publicitaire IA
-Version finale : chargement automatique depuis Google Drive
+Version corrigée : bouton Envoyer jaune + chat fonctionnel
 """
 import streamlit as st
 import pandas as pd
@@ -33,29 +33,18 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Open+Sans:wght@300;400;500&display=swap');
 
-/* ── COULEURS WAFASALAF ──
-   Jaune   : #F5C400
-   Teal    : #00B5A0
-   Noir    : #1A1A1A
-   Gris foncé : #2C2C2C
-   Gris moyen : #444444
-   Blanc   : #FFFFFF
-*/
-
 html, body, [class*="css"] {
     font-family: 'Open Sans', sans-serif !important;
     background-color: #1A1A1A !important;
     color: #FFFFFF !important;
 }
 
-/* ── SIDEBAR ── */
 [data-testid="stSidebar"] {
     background: #111111 !important;
     border-right: 3px solid #F5C400 !important;
 }
 [data-testid="stSidebar"] * { color: #FFFFFF !important; }
 
-/* ── FOND PRINCIPAL ── */
 .stApp, .main, [data-testid="stAppViewContainer"] {
     background-color: #1A1A1A !important;
 }
@@ -63,7 +52,6 @@ html, body, [class*="css"] {
     background-color: #1A1A1A !important;
 }
 
-/* ── MÉTRIQUES ── */
 [data-testid="metric-container"] {
     background: #2C2C2C;
     border: 1px solid rgba(245,196,0,0.25);
@@ -88,7 +76,6 @@ html, body, [class*="css"] {
     color: #00B5A0 !important;
 }
 
-/* ── TABS ── */
 [data-testid="stTabs"] [role="tablist"] {
     background: #2C2C2C;
     border-radius: 10px;
@@ -109,33 +96,34 @@ html, body, [class*="css"] {
     border: none !important;
 }
 
-/* ── BOUTONS ── */
-.stButton > button {
+/* ── TOUS LES BOUTONS EN JAUNE (y compris form submit) ── */
+.stButton > button,
+[data-testid="stFormSubmitButton"] > button,
+button[kind="primary"],
+button[kind="secondaryFormSubmit"] {
     font-family: 'Montserrat', sans-serif !important;
     font-weight: 600 !important;
     border-radius: 8px !important;
     background: #F5C400 !important;
     color: #1A1A1A !important;
     border: none !important;
-    transition: all 0.2s ease;
+    transition: all 0.2s ease !important;
 }
-.stButton > button:hover {
+.stButton > button:hover,
+[data-testid="stFormSubmitButton"] > button:hover {
     background: #e6b800 !important;
     color: #1A1A1A !important;
-    transform: translateY(-1px);
+    transform: translateY(-1px) !important;
     box-shadow: 0 4px 15px rgba(245,196,0,0.3) !important;
 }
-button[kind="primary"] {
-    background: #F5C400 !important;
-    color: #1A1A1A !important;
-}
-button[kind="secondary"] {
+
+/* Bouton Effacer en gris */
+.stButton > button[kind="secondary"] {
     background: #2C2C2C !important;
     color: #FFFFFF !important;
     border: 1px solid rgba(245,196,0,0.3) !important;
 }
 
-/* ── INPUTS ── */
 .stTextInput input, .stTextArea textarea, .stSelectbox select {
     background: #2C2C2C !important;
     border: 1px solid rgba(245,196,0,0.3) !important;
@@ -176,7 +164,6 @@ button[kind="secondary"] {
     margin-bottom: 3px;
 }
 
-/* ── PREDICTION CARDS ── */
 .pred-card {
     background: #2C2C2C;
     border: 1px solid rgba(245,196,0,0.1);
@@ -189,7 +176,6 @@ button[kind="secondary"] {
 .pred-card.medium { border-left-color: #F5C400; }
 .pred-card.low   { border-left-color: #00B5A0; }
 
-/* ── TITRES SECTIONS ── */
 .section-title {
     font-family: 'Montserrat', sans-serif;
     font-size: 22px;
@@ -207,7 +193,6 @@ button[kind="secondary"] {
     padding-left: 16px;
 }
 
-/* ── STATUS BADGES ── */
 .status-ok {
     background: rgba(0,181,160,0.1);
     border: 1px solid rgba(0,181,160,0.35);
@@ -227,24 +212,20 @@ button[kind="secondary"] {
     font-family: 'Montserrat', monospace;
 }
 
-/* ── CONTAINERS / CARDS ── */
 [data-testid="stVerticalBlockBorderWrapper"] {
     background: #2C2C2C !important;
     border: 1px solid rgba(245,196,0,0.15) !important;
     border-radius: 12px !important;
 }
 
-/* ── DATAFRAME ── */
 [data-testid="stDataFrame"] {
     background: #2C2C2C !important;
     border-radius: 10px !important;
     border: 1px solid rgba(245,196,0,0.15) !important;
 }
 
-/* ── DIVIDER ── */
 hr { border-color: rgba(245,196,0,0.2) !important; }
 
-/* ── RADIO SIDEBAR ── */
 [data-testid="stSidebar"] .stRadio label {
     color: #CCCCCC !important;
     font-size: 14px !important;
@@ -252,28 +233,22 @@ hr { border-color: rgba(245,196,0,0.2) !important; }
 }
 [data-testid="stSidebar"] .stRadio label:hover { color: #F5C400 !important; }
 
-/* ── HIDE DEFAULT ELEMENTS ── */
 #MainMenu, footer, header { visibility: hidden; }
 
-/* ── PROGRESS BAR ── */
 .stProgress > div > div { background-color: #F5C400 !important; }
 
-/* ── EXPANDER ── */
 [data-testid="stExpander"] {
     background: #2C2C2C !important;
     border: 1px solid rgba(245,196,0,0.15) !important;
     border-radius: 10px !important;
 }
 
-/* ── SPINNER ── */
 .stSpinner > div { border-top-color: #F5C400 !important; }
 
-/* ── ALERTS ── */
 .stAlert { border-radius: 10px !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── PALETTE WAFASALAF ──────────────────────────────────────────────
 MARQUES = ['Wafasalaf', 'Salafin', 'Eqdom', 'Sofac']
 COLORS  = {'Wafasalaf':'#F5C400','Salafin':'#00B5A0','Eqdom':'#FF6B35','Sofac':'#8B5CF6'}
 BG2='#1A1A1A'; BG3='#2C2C2C'; GRID='rgba(245,196,0,0.07)'; TEXT='#FFFFFF'; TEXT2='#888888'
@@ -347,13 +322,13 @@ auto_load()
 
 def need_data():
     if st.session_state.df is None:
-        st.info("Les donnees se chargent automatiquement depuis Google Drive.\n\n"
+        st.info("Les données se chargent automatiquement depuis Google Drive.\n\n"
                 "Si rien ne s'affiche, allez dans Configuration.")
         st.stop()
 
 def need_api():
     if not st.session_state.client:
-        st.warning("Cle API Groq non configuree. Allez dans Configuration.")
+        st.warning("Clé API Groq non configurée. Allez dans Configuration.")
         st.stop()
 
 def is_empty(val):
@@ -364,7 +339,6 @@ def init_groq():
     if GROQ_API_KEY and st.session_state.client is None:
         try:
             client = Groq(api_key=GROQ_API_KEY)
-            # Test rapide pour valider la clé
             st.session_state.client = client
         except Exception:
             pass
@@ -422,7 +396,7 @@ def construire_contexte_rag(df, ctx, marque_focus='Wafasalaf',
 
 def chat_llm(question, date_debut=None, date_fin=None):
     if not st.session_state.client:
-        st.error("Cle API Groq non configuree.")
+        st.error("Clé API Groq non configurée.")
         return ''
     df  = st.session_state.df
     ctx = st.session_state.context_json
@@ -595,7 +569,7 @@ def chart_dei(ctx):
                   annotation_text=f'Moy. {moy}', annotation_font_color=TEXT2)
     fig.update_layout(
         paper_bgcolor=BG2, plot_bgcolor=BG3,
-        font=dict(family='DM Sans', color=TEXT2, size=12),
+        font=dict(family='Open Sans', color=TEXT2, size=12),
         margin=dict(l=16, r=16, t=40, b=16),
         height=260, showlegend=False,
         title=dict(text='Classement DEI Global', font=dict(size=14, color=TEXT)),
@@ -621,7 +595,7 @@ def chart_radar(ctx):
                    radialaxis=dict(visible=True, range=[0,100], gridcolor=GRID,
                                    tickfont=dict(size=9, color=TEXT2)),
                    angularaxis=dict(gridcolor=GRID, tickfont=dict(size=10, color=TEXT2))),
-        font=dict(family='DM Sans', color=TEXT2),
+        font=dict(family='Open Sans', color=TEXT2),
         margin=dict(l=40,r=40,t=50,b=30), height=360,
         title=dict(text='Profil DEI - 5 Indicateurs', font=dict(size=14, color=TEXT)),
         legend=dict(bgcolor='rgba(0,0,0,0)'),
@@ -701,10 +675,7 @@ def chart_timeline(df):
 with st.sidebar:
     st.markdown("""
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid rgba(245,196,0,0.2);">
-      <div style="width:40px;height:40px;border-radius:10px;
-                  background:#F5C400;
-                  display:flex;align-items:center;justify-content:center;
-                  font-size:18px;font-weight:900;color:#1A1A1A;">W</div>
+      <div style="width:40px;height:40px;border-radius:10px;background:#F5C400;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#1A1A1A;">W</div>
       <div>
         <div style="font-family:'Montserrat',sans-serif;font-size:15px;font-weight:800;color:#FFFFFF;letter-spacing:-0.01em;">Wafasalaf</div>
         <div style="font-size:10px;color:#F5C400;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Veille Publicitaire IA</div>
@@ -729,7 +700,7 @@ with st.sidebar:
         st.markdown('<div class="status-err">Erreur chargement Drive</div>', unsafe_allow_html=True)
 
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-    if st.button("Rafraichir les donnees", width='stretch'):
+    if st.button("Rafraichir les donnees", use_container_width=True):
         load_from_drive.clear()
         st.session_state.df           = None
         st.session_state.context_json = None
@@ -744,7 +715,7 @@ with st.sidebar:
         c1, c2 = st.columns([3,1])
         c1.markdown(f"<span style='color:{COLORS[m]};font-size:12px;font-weight:500;'>{m}</span>", unsafe_allow_html=True)
         c1.progress(int(sc))
-        c2.markdown(f"<span style='font-family:DM Mono,monospace;font-size:11px;color:{COLORS[m]};'>{sc}</span>", unsafe_allow_html=True)
+        c2.markdown(f"<span style='font-family:monospace;font-size:11px;color:{COLORS[m]};'>{sc}</span>", unsafe_allow_html=True)
 
 # ── CONFIGURATION ─────────────────────────────────────────────────
 if page == "⚙️ Configuration":
@@ -759,7 +730,7 @@ if page == "⚙️ Configuration":
                                          placeholder="1aBcDeFgHiJkLmNoPqRsTuVwX")
         json_id_input = col2.text_input("ID du fichier JSON", value=DRIVE_JSON_ID,
                                          placeholder="1zYxWvUTsRqPoNmLkJiHgFeDcBa")
-        if st.button("Sauvegarder et charger", type="primary", width='stretch'):
+        if st.button("Sauvegarder et charger", type="primary", use_container_width=True):
             if csv_id_input and json_id_input:
                 load_from_drive.clear()
                 with st.spinner("Chargement depuis Drive..."):
@@ -783,10 +754,9 @@ if page == "⚙️ Configuration":
         api_input = st.text_input("Cle API Groq", value=GROQ_API_KEY,
                                    type="password", label_visibility="collapsed",
                                    placeholder="gsk_...")
-        if st.button("Connecter Groq", type="primary", width='stretch'):
+        if st.button("Connecter Groq", type="primary", use_container_width=True):
             try:
                 test_client = Groq(api_key=api_input)
-                # Test de connexion rapide
                 test_client.chat.completions.create(
                     model=MODEL_NAME,
                     messages=[{"role":"user","content":"test"}],
@@ -801,7 +771,7 @@ if page == "⚙️ Configuration":
         col1, col2 = st.columns(2)
         csv_file  = col1.file_uploader("social_posts_enrichi.csv", type=["csv"])
         json_file = col2.file_uploader("llm_context.json", type=["json"])
-        if st.button("Charger les fichiers uploades", width='stretch'):
+        if st.button("Charger les fichiers uploades", use_container_width=True):
             if csv_file and json_file:
                 df_raw = pd.read_csv(csv_file, low_memory=False)
                 df_raw['post_date'] = pd.to_datetime(df_raw['post_date'], utc=True, errors='coerce')
@@ -842,15 +812,15 @@ elif page == "📊 Dashboard":
     k5.metric("Langue top",      "Arabe/Darija","x26 vs FR")
     st.divider()
     c1,c2 = st.columns(2)
-    c1.plotly_chart(chart_dei(ctx),        width='stretch')
-    c2.plotly_chart(chart_radar(ctx),      width='stretch')
+    c1.plotly_chart(chart_dei(ctx),        use_container_width=True)
+    c2.plotly_chart(chart_radar(ctx),      use_container_width=True)
     c1,c2 = st.columns(2)
-    c1.plotly_chart(chart_engagement(df),  width='stretch')
-    c2.plotly_chart(chart_langue(df),      width='stretch')
+    c1.plotly_chart(chart_engagement(df),  use_container_width=True)
+    c2.plotly_chart(chart_langue(df),      use_container_width=True)
     c1,c2 = st.columns(2)
-    c1.plotly_chart(chart_com_noncom(df),  width='stretch')
-    c2.plotly_chart(chart_offre(df),       width='stretch')
-    st.plotly_chart(chart_timeline(df),    width='stretch')
+    c1.plotly_chart(chart_com_noncom(df),  use_container_width=True)
+    c2.plotly_chart(chart_offre(df),       use_container_width=True)
+    st.plotly_chart(chart_timeline(df),    use_container_width=True)
     st.divider()
     st.markdown("#### Tableau recapitulatif")
     recap = []
@@ -867,16 +837,19 @@ elif page == "📊 Dashboard":
             'Richesse':    ind.get('Richesse', '-'),
             'Eng. median': eng.get('median', '-'),
         })
-    st.dataframe(pd.DataFrame(recap), width='stretch', hide_index=True,
+    st.dataframe(pd.DataFrame(recap), use_container_width=True, hide_index=True,
                  column_config={
                      'DEI': st.column_config.ProgressColumn('DEI', min_value=0, max_value=100, format='%.1f'),
                  })
 
 # ── CHAT LLM ──────────────────────────────────────────────────────
 elif page == "💬 Chat LLM":
-    need_data(); need_api()
+    need_data()
+    need_api()
     st.markdown('<div class="section-title">Chat Strategique</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-sub">Questions libres — contexte RAG injecte automatiquement.</div>', unsafe_allow_html=True)
+
+    # Questions suggérées
     st.markdown("**Questions suggerees :**")
     qs = [
         "Pourquoi Salafin domine le DEI ? Que doit faire Wafasalaf ?",
@@ -888,65 +861,104 @@ elif page == "💬 Chat LLM":
     ]
     cols = st.columns(3)
     for i, q in enumerate(qs):
-        if cols[i%3].button(q[:44]+'...' if len(q)>44 else q, key=f"q{i}", width='stretch'):
+        label = q[:44] + '...' if len(q) > 44 else q
+        if cols[i % 3].button(label, key=f"q{i}", use_container_width=True):
             st.session_state['pending_q'] = q
+
     st.divider()
+
+    # Historique des échanges
     for turn in st.session_state.historique_chat:
-        ts = turn.get('timestamp','')[:16].replace('T',' ')
+        ts = turn.get('timestamp', '')[:16].replace('T', ' ')
         st.markdown(f'<div class="chat-meta">Vous · {ts}</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="chat-user">{turn["question"]}</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="chat-meta">Assistant</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="chat-ai">{turn["reponse"].replace(chr(10),"<br>")}</div>', unsafe_allow_html=True)
-    with st.form("chat_form", clear_on_submit=True):
-        user_q = st.text_area("Votre question", height=80,
-                               placeholder="Posez votre question strategique...",
-                               label_visibility="visible",
-                               value=st.session_state.pop("pending_q", ""))
-        c1,c2 = st.columns([5,1])
-        send  = c1.form_submit_button("Envoyer", type="primary", width='stretch')
-        clear = c2.form_submit_button("Effacer", width='stretch')
-    if clear:
-        st.session_state.historique_chat = []; st.rerun()
-    if send and user_q.strip():
-        with st.spinner("Analyse en cours..."):
-            chat_llm(user_q.strip())
+        st.markdown(f'<div class="chat-meta">Assistant IA</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="chat-ai">{turn["reponse"].replace(chr(10), "<br>")}</div>', unsafe_allow_html=True)
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+    # ── ZONE DE SAISIE SANS st.form ──────────────────────────────
+    # On utilise on_change + session_state pour éviter le bug CSS du bouton rouge
+    pending = st.session_state.pop("pending_q", "")
+
+    user_q = st.text_area(
+        "Votre question",
+        height=90,
+        placeholder="Posez votre question strategique...",
+        value=pending,
+        key="chat_input",
+    )
+
+    col_send, col_clear = st.columns([5, 1])
+
+    with col_send:
+        send_btn = st.button("Envoyer ✉", type="primary", use_container_width=True, key="btn_send")
+
+    with col_clear:
+        clear_btn = st.button("Effacer", use_container_width=True, key="btn_clear")
+
+    if clear_btn:
+        st.session_state.historique_chat = []
         st.rerun()
+
+    if send_btn:
+        question = st.session_state.get("chat_input", "").strip()
+        if question:
+            with st.spinner("Analyse en cours..."):
+                chat_llm(question)
+            st.rerun()
+        else:
+            st.warning("Veuillez saisir une question.")
+
+    # Téléchargement historique
     if st.session_state.historique_chat:
-        hist = "\n\n".join(f"Q: {t['question']}\nR: {t['reponse']}"
-                           for t in st.session_state.historique_chat)
-        st.download_button("Telecharger l'historique", data=hist.encode(),
-                           file_name="chat_wafasalaf.txt", mime="text/plain")
+        hist = "\n\n".join(
+            f"Q: {t['question']}\nR: {t['reponse']}"
+            for t in st.session_state.historique_chat
+        )
+        st.download_button(
+            "Telecharger l'historique",
+            data=hist.encode(),
+            file_name="chat_wafasalaf.txt",
+            mime="text/plain",
+        )
+
     st.caption(f"{len(st.session_state.historique_chat)} echange(s)")
 
 # ── COMPARAISON ───────────────────────────────────────────────────
 elif page == "📅 Comparaison":
-    need_data(); need_api()
+    need_data()
+    need_api()
     st.markdown('<div class="section-title">Comparaison par Periode</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-sub">Analyse LLM + graphiques filtres sur une fenetre temporelle.</div>', unsafe_allow_html=True)
-    # Init session state for dates
+
     if 'cmp_start' not in st.session_state: st.session_state.cmp_start = datetime.date(2025,6,1)
     if 'cmp_end'   not in st.session_state: st.session_state.cmp_end   = datetime.date(2025,12,31)
+
     with st.container(border=True):
         pc1,pc2,pc3,pc4 = st.columns(4)
-        if pc1.button("S1 2025",  width='stretch'):
+        if pc1.button("S1 2025",  use_container_width=True):
             st.session_state.cmp_start, st.session_state.cmp_end = datetime.date(2025,1,1),  datetime.date(2025,6,30)
             st.rerun()
-        if pc2.button("S2 2025",  width='stretch'):
+        if pc2.button("S2 2025",  use_container_width=True):
             st.session_state.cmp_start, st.session_state.cmp_end = datetime.date(2025,7,1),  datetime.date(2025,12,31)
             st.rerun()
-        if pc3.button("Q1 2026",  width='stretch'):
+        if pc3.button("Q1 2026",  use_container_width=True):
             st.session_state.cmp_start, st.session_state.cmp_end = datetime.date(2026,1,1),  datetime.date(2026,3,4)
             st.rerun()
-        if pc4.button("Complete", width='stretch'):
+        if pc4.button("Complete", use_container_width=True):
             st.session_state.cmp_start, st.session_state.cmp_end = datetime.date(2025,1,31), datetime.date(2026,3,4)
             st.rerun()
+
         c1,c2,c3 = st.columns(3)
         d_start  = c1.date_input("Date debut", value=st.session_state.cmp_start, key="cmp_d_start")
         d_end    = c2.date_input("Date fin",   value=st.session_state.cmp_end,   key="cmp_d_end")
         focus    = c3.selectbox("Focus", MARQUES)
+
         if d_start != st.session_state.cmp_start: st.session_state.cmp_start = d_start
         if d_end   != st.session_state.cmp_end:   st.session_state.cmp_end   = d_end
-        run = st.button("Lancer l'analyse", type="primary", width='stretch')
+
+        run = st.button("Lancer l'analyse", type="primary", use_container_width=True)
+
     if run:
         with st.spinner("Analyse en cours..."):
             stats, analyse, err = comparer_periode(str(d_start), str(d_end), focus=focus)
@@ -957,14 +969,14 @@ elif page == "📅 Comparaison":
             tbl = pd.DataFrame({m: {'Posts':v['nb_posts'],'Posts/sem':v['posts_semaine'],
                                     'Eng. median':v['engagement_median'],'Eng. max':v['engagement_max']}
                                 for m,v in stats.items()}).T
-            st.dataframe(tbl, width='stretch')
+            st.dataframe(tbl, use_container_width=True)
             df_f = st.session_state.df[
                 (st.session_state.df['date_debut'] >= pd.Timestamp(d_start)) &
                 (st.session_state.df['date_debut'] <= pd.Timestamp(d_end))
             ]
             c1,c2 = st.columns(2)
-            c1.plotly_chart(chart_engagement(df_f), width='stretch')
-            c2.plotly_chart(chart_langue(df_f),     width='stretch')
+            c1.plotly_chart(chart_engagement(df_f), use_container_width=True)
+            c2.plotly_chart(chart_langue(df_f),     use_container_width=True)
             with st.container(border=True):
                 st.markdown(f"**Analyse LLM — {focus}**")
                 st.markdown(analyse)
@@ -973,15 +985,18 @@ elif page == "📅 Comparaison":
 
 # ── PREDICTION ─────────────────────────────────────────────────────
 elif page == "🔮 Prediction":
-    need_data(); need_api()
+    need_data()
+    need_api()
     st.markdown('<div class="section-title">Prediction des Prochaines Offres</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-sub">Anticipe les campagnes concurrentielles.</div>', unsafe_allow_html=True)
+
     with st.container(border=True):
         c1,c2,c3 = st.columns(3)
         conc   = c1.selectbox("Concurrent", ['Salafin','Eqdom','Sofac'])
         horiz  = c2.selectbox("Horizon", ['1 prochain mois','3 prochains mois','6 prochains mois'], index=1)
         nb_p   = c3.selectbox("Nb predictions", [3,4,5], index=1)
-        run_p  = st.button("Predire", type="primary", width='stretch')
+        run_p  = st.button("Predire", type="primary", use_container_width=True)
+
     if run_p:
         with st.spinner(f"Analyse de {conc}..."):
             data = predire_prochaines_offres(conc, horiz, nb_p)
@@ -989,31 +1004,27 @@ elif page == "🔮 Prediction":
             st.error("Aucune donnee disponible.")
         elif data.get('predictions'):
             PCSS = {'Haute':'high','Moyenne':'medium','Faible':'low'}
-            PEM  = {'Haute':'ROUGE','Moyenne':'ORANGE','Faible':'VERT'}
+            PEM  = {'Haute':'🔴 ROUGE','Moyenne':'🟡 ORANGE','Faible':'🟢 VERT'}
             st.markdown(f"#### Predictions — **{conc}** · {horiz}")
             for p in data['predictions']:
                 prob = p.get('probabilite','Moyenne')
                 st.markdown(f"""
                 <div class="pred-card {PCSS.get(prob,'medium')}">
-                  <div style="font-size:10px;color:#5a5e75;font-family:'DM Mono',monospace;margin-bottom:5px;">
+                  <div style="font-size:10px;color:#888;font-family:monospace;margin-bottom:5px;">
                     #{p.get('rang')} — {PEM.get(prob,'')} — Probabilite : {prob}
                   </div>
-                  <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:3px;">
-                    {p.get('type_offre')}
-                  </div>
-                  <div style="font-size:13px;color:#8b8fa8;font-style:italic;margin-bottom:8px;">
-                    "{p.get('titre_probable')}"
-                  </div>
+                  <div style="font-size:15px;font-weight:700;margin-bottom:3px;">{p.get('type_offre')}</div>
+                  <div style="font-size:13px;color:#aaa;font-style:italic;margin-bottom:8px;">"{p.get('titre_probable')}"</div>
                   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
-                    <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:#0b0d14;color:#8b8fa8;">{p.get('langue_probable')}</span>
-                    <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:#0b0d14;color:#8b8fa8;">{p.get('canal_probable')}</span>
-                    <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:#0b0d14;color:#8b8fa8;">{p.get('timing_probable')}</span>
-                    <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:#0b0d14;color:#8b8fa8;">{p.get('montant_probable','')}</span>
+                    <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:#111;color:#888;">{p.get('langue_probable')}</span>
+                    <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:#111;color:#888;">{p.get('canal_probable')}</span>
+                    <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:#111;color:#888;">{p.get('timing_probable')}</span>
+                    <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:#111;color:#888;">{p.get('montant_probable','')}</span>
                   </div>
-                  <div style="font-size:12px;color:#8b8fa8;margin-bottom:7px;">{p.get('justification')}</div>
+                  <div style="font-size:12px;color:#aaa;margin-bottom:7px;">{p.get('justification')}</div>
                   <div style="font-size:12px;padding:7px 11px;border-radius:7px;
                               background:rgba(245,196,0,0.08);border:1px solid rgba(245,196,0,0.2);color:#F5C400;">
-                    -> {p.get('contre_mesure_wafasalaf')}
+                    → {p.get('contre_mesure_wafasalaf')}
                   </div>
                 </div>""", unsafe_allow_html=True)
             st.divider()
@@ -1028,18 +1039,22 @@ elif page == "🔮 Prediction":
                     st.write(data.get('opportunite_pour_wafasalaf',''))
         elif data.get('erreur'):
             st.error(f"Erreur JSON : {data['erreur']}")
-            with st.expander("Reponse brute"): st.text(data.get('texte_brut',''))
+            with st.expander("Reponse brute"):
+                st.text(data.get('texte_brut',''))
 
 # ── RAPPORT PDF ───────────────────────────────────────────────────
 elif page == "📄 Rapport PDF":
-    need_data(); need_api()
+    need_data()
+    need_api()
     st.markdown('<div class="section-title">Rapport Strategique PDF</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-sub">Rapport complet genere par IA — exportable en PDF, TXT et HTML.</div>', unsafe_allow_html=True)
+
     with st.container(border=True):
         c1,c2 = st.columns(2)
         r_start = c1.date_input("Debut", value=datetime.date(2025,1,1))
         r_end   = c2.date_input("Fin",   value=datetime.date(2026,3,4))
-        gen_btn = st.button("Generer le rapport", type="primary", width='stretch')
+        gen_btn = st.button("Generer le rapport", type="primary", use_container_width=True)
+
     if gen_btn:
         with st.spinner("Generation en cours (30-60 sec)..."):
             pdf_bytes, contenu = generer_rapport_pdf(str(r_start), str(r_end))
@@ -1055,10 +1070,10 @@ elif page == "📄 Rapport PDF":
             c1,c2,c3 = st.columns(3)
             c1.download_button("Telecharger PDF",  data=pdf_bytes,
                                file_name=f"{name}.pdf", mime="application/pdf",
-                               width='stretch', type="primary")
+                               use_container_width=True, type="primary")
             c2.download_button("Telecharger TXT",  data=contenu.encode(),
                                file_name=f"{name}.txt", mime="text/plain",
-                               width='stretch')
+                               use_container_width=True)
             html_out = (f"<!DOCTYPE html><html lang='fr'><head><meta charset='UTF-8'>"
                         f"<title>Rapport Wafasalaf</title>"
                         f"<style>body{{font-family:Georgia,serif;max-width:860px;margin:48px auto;"
@@ -1071,7 +1086,7 @@ elif page == "📄 Rapport PDF":
                         f"{'<br>'.join(contenu.split(chr(10)))}</body></html>")
             c3.download_button("Telecharger HTML", data=html_out.encode(),
                                file_name=f"{name}.html", mime="text/html",
-                               width='stretch')
+                               use_container_width=True)
     elif st.session_state.last_rapport:
         with st.expander("Dernier rapport genere"):
             st.markdown(st.session_state.last_rapport)
